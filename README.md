@@ -3,23 +3,26 @@
 # SPDX-FileCopyrightText: 2025 The Linux Foundation
 -->
 
-# 🛠️ Template Action
+# 🐍 Build Python Project
 
-This is a template for the other actions in this Github organisation.
+Builds a Python project, uploads build artefacts to GitHub.
 
-## actions-template
+Supports these optional features:
+
+- GitHub Attestations (Build Provenance)
+- SigStore Signing    (Signing of Build Artefacts)
+
+## python-build-action
 
 ## Usage Example
 
 <!-- markdownlint-disable MD046 -->
 
 ```yaml
-steps:
-  - name: "Action template"
-    id: action-template
-    uses: lfreleng-actions/actions-template@main
+  - name: "Build Python project"
+    uses: lfreleng-actions/python-build-action@main
     with:
-      input: "placeholder"
+      tag: ${{ needs.repository.outputs.build_tag }}
 ```
 
 <!-- markdownlint-enable MD046 -->
@@ -28,9 +31,17 @@ steps:
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable Name | Required | Description  |
-| ------------- | -------- | ------------ |
-| INPUT         | False    | Action input |
+| Variable Name       | Required | Description                                                |
+| ------------------- | -------- | ---------------------------------------------------------- |
+| ARTEFACT_PATH       | False    | Output path/directory to use for build artefacts           |
+| PURGE_ARTEFACT_PATH | False    | Deletes any pre-existing content in build/target directory |
+| TAG                 | False    | Version to use for Python project build artefacts          |
+| ATTESTATIONS        | False    | Attest build artefacts using GitHub Attestations           |
+| SIGSTORE_SIGN       | False    | Uses SigStyore application to sign binary build artefacts  |
+| PATH_PREFIX         | False    | Path/directory to Python project code                      |
+
+[Github Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds_)
+[SigStore](https://www.sigstore.dev/)
 
 <!-- markdownlint-enable MD013 -->
 
@@ -38,9 +49,11 @@ steps:
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable Name | Description   |
-| ------------- | ------------- |
-| OUTPUT        | Action output |
+| Variable Name | Description                      |
+| ------------- | -------------------------------- |
+| MATRIX_JSON   | Python version supported as JSON |
+| ARTEFACT_NAME | Name/label for build artefacts   |
+| ARTEFACT_PATH | Patch to build artefacts         |
 
 <!-- markdownlint-enable MD013 -->
 
