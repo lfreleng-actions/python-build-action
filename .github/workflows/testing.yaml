@@ -33,15 +33,18 @@ jobs:
           repository: "lfreleng-actions/test-python-project"
           path: "test-python-project"
 
-      - name: "Run action: ${{ github.repository }} [TOX BUILD]"
-        uses: ./
-        with:
-          path_prefix: "test-python-project/"
-
-      - name: "Run action: ${{ github.repository }} [PYTHON BUILD]"
+      # Perform test build
+      - name: "Run action: ${{ github.repository }} [Standard build]"
         uses: ./
         with:
           path_prefix: "test-python-project/"
           tox_build: false
+
+      # Perform test build with TOX
+      - name: "Run action: ${{ github.repository }} [Build using TOX]"
+        uses: ./
+        with:
+          path_prefix: "test-python-project/"
           purge_artefact_path: true
+          # Uploading build artefacts twice causes failure
           artefact_upload: false
