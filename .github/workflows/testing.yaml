@@ -27,19 +27,24 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       # Perform setup prior to running test(s)
-      - name: "Testing setup step"
-        shell: bash
-        run: |
-          # Testing setup step
-          echo "Testing setup step"
-          echo "Testing setup step/summary output" >> "$GITHUB_STEP_SUMMARY"
+      - name: "Checkout sample project repository"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: "lfreleng-actions/test-python-project"
+          path: "test-python-project"
 
-      - name: "Running local action: ${{ github.repository }}"
+      # Perform test build
+      - name: "Run action: ${{ github.repository }} [Standard build]"
         uses: ./
+        with:
+          path_prefix: "test-python-project/"
+          tox_build: false
 
-      - name: "Validating local action: ${{ github.repository }}"
-        shell: bash
-        run: |
-          # Local action validation
-          echo "Validating local action: ${{ github.repository }}"
-          echo "Validation step summary output" >> "$GITHUB_STEP_SUMMARY"
+      # Perform test build with TOX
+      - name: "Run action: ${{ github.repository }} [Build using TOX]"
+        uses: ./
+        with:
+          path_prefix: "test-python-project/"
+          purge_artefact_path: true
+          # Uploading build artefacts twice causes failure
+          artefact_upload: false
