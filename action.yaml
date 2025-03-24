@@ -122,12 +122,6 @@ runs:
       with:
         python-version: "${{ env.build_python }}"
 
-    # - name: "Install PDM tooling"
-      # yamllint disable-line rule:line-length
-    #   uses: pdm-project/setup-pdm@b2472ca4258a9ea3aee813980a0100a2261a42fc # v4.2
-    #   with:
-    #     python-version: "${{ env.build_python }}"
-
     - name: "Build Python project"
       id: perform-build
       shell: bash
