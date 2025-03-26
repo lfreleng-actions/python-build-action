@@ -51,6 +51,9 @@ inputs:
     default: true
 
 outputs:
+  BUILD_PYTHON_VERSION:
+    description: "Python version used to perform build (create artefacts)"
+    value: "${{ steps.python-metadata.outputs.build_python_version }}"
   MATRIX_JSON:
     description: "Project supported Python versions as JSON"
     value: ${{ steps.python-metadata.outputs.matrix_json }}
@@ -60,6 +63,7 @@ outputs:
   ARTEFACT_PATH:
     description: "Build artefacts will be output to this folder/directory"
     value: ${{ inputs.artefact_path }}
+
 
 runs:
   using: "composite"
@@ -116,11 +120,12 @@ runs:
         replacement_version: ${{ env.tag }}
         path_prefix: "${{ inputs.path_prefix }}"
 
-    - name: "Set up Python ${{ inputs.build_python_version }}"
+    - name: "Setup Python"
       # yamllint disable-line rule:line-length
       uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
       with:
-        python-version: "${{ env.build_python }}"
+        # yamllint disable-line rule:line-length
+        python-version: "${{ steps.python-metadata.outputs.build_python_version }}"
 
     - name: "Build Python project"
       id: perform-build

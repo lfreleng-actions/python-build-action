@@ -54,11 +54,12 @@ See the following links for more information on artefact signing and attestation
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable Name | Description                      |
-| ------------- | -------------------------------- |
-| MATRIX_JSON   | Python version supported as JSON |
-| ARTEFACT_NAME | Name/label for build artefacts   |
-| ARTEFACT_PATH | Path to build artefacts          |
+| Variable Name        | Description                          |
+| -------------------- | ------------------------------------ |
+| BUILD_PYTHON_VERSION | Python version used to perform build |
+| MATRIX_JSON          | Python version supported as JSON     |
+| ARTEFACT_NAME        | Name/label for build artefacts       |
+| ARTEFACT_PATH        | Path to build artefacts              |
 
 <!-- markdownlint-enable MD013 -->
 
