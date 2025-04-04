@@ -147,7 +147,7 @@ runs:
         echo "datetime=$datetime" >> "$GITHUB_ENV"
         echo "datetime=${datetime}" >> "$GITHUB_OUTPUT"
 
-        if [ ${{ inputs.PURGE_OUTPUT_PATH }} ] && \
+        if [ ${{ inputs.PURGE_ARTEFACT_PATH }} ] && \
            [ -d ${{ inputs.ARTEFACT_PATH }} ]; then
           echo "Purging artefact output path prior to build ⚠️"
           echo "Path: ${{ inputs.ARTEFACT_PATH }}"
@@ -231,3 +231,4 @@ runs:
         name: "${{ env.python_project_name }}"
         path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
         if-no-files-found: error
+        overwrite: ${{ inputs.PURGE_ARTEFACT_PATH }}

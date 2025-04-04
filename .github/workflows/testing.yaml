@@ -40,11 +40,9 @@ jobs:
           path_prefix: "test-python-project/"
           tox_build: false
 
-      # Perform test build with TOX
+      # Perform test build again with TOX
       - name: "Run action: ${{ github.repository }} [Build using TOX]"
         uses: ./
         with:
           path_prefix: "test-python-project/"
           purge_artefact_path: true
-          # Uploading build artefacts twice causes failure
-          artefact_upload: false

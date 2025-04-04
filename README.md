@@ -95,6 +95,9 @@ Note: this build action is primarily designed around modern PEP standards.
 
 ## Notes
 
+When PURGE_ARTEFACT_PATH requested, actions/upload-artefacts will permit
+pre-existing artefacts to be overwritten.
+
 The current action has not been extensively tested with legacy projects types.
 
 Dynamic versioning may work, but has NOT been extensively tested.
