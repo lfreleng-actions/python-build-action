@@ -24,7 +24,7 @@ inputs:
     type: boolean
     default: false
   TAG:
-    description: "Tag version/name for this specific build (semantic)"
+    description: "Explicit tag/version for this build (semantic)"
     required: false
     type: string
   ATTESTATIONS:
@@ -43,12 +43,11 @@ inputs:
     description: "Directory location containing project code"
     required: false
     type: string
-    default: ""
   TOX_BUILD:
     description: "Attempt to use TOX to perform build"
     required: false
     type: boolean
-    default: true
+    default: false
 
 outputs:
   BUILD_PYTHON_VERSION:
@@ -64,36 +63,38 @@ outputs:
     description: "Build artefacts will be output to this folder/directory"
     value: ${{ inputs.artefact_path }}
 
-
 runs:
   using: "composite"
   steps:
-    - name: "Pre-build steps"
+    - name: "Setup action/environment"
       shell: bash
       run: |
-        # Pre-build steps
-        echo "# 🐍 Python Build" >> "$GITHUB_STEP_SUMMARY"
+        # Setup action/environment
 
-        # Handle boolean inputs carefully, add to environment
-        ARTEFACT_UPLOAD=$(echo "${{ inputs.artefact_upload }}" |\
-        tr '[:upper:]' '[:lower:]')
-        ATTESTATIONS=$(echo "${{ inputs.attestations }}" |\
-        tr '[:upper:]' '[:lower:]')
-        SIGSTORE_SIGN=$(echo "${{ inputs.sigstore_sign }}" |\
-        tr '[:upper:]' '[:lower:]')
-        TOX_BUILD=$(echo "${{ inputs.tox_build }}" |\
-        tr '[:upper:]' '[:lower:]')
-        echo "artefact_upload=$ARTEFACT_UPLOAD" >> "$GITHUB_ENV"
-        echo "attestations=$ATTESTATIONS" >> "$GITHUB_ENV"
-        echo "sigstore_sign=$SIGSTORE_SIGN" >> "$GITHUB_ENV"
-        echo "tox_build=$TOX_BUILD" >> "$GITHUB_ENV"
+        # Handle path_prefix input consistently and when absent
+        path_prefix="${{ inputs.PATH_PREFIX }}"
+        if [ -z "$path_prefix" ]; then
+          # Set current directory as path prefix
+          path_prefix="."
+        else
+          # Strip any trailing slash in provided path
+          path_prefix="${path_prefix%/}"
+        fi
+        # Verify is a valid directory path
+        if [ ! -d "$path_prefix" ]; then
+          echo "Error: invalid path/prefix to project directory ❌"; exit 1
+        fi
+        echo "path_prefix=$path_prefix" >> "$GITHUB_ENV"
+
+        # Output build heading
+        echo "# 🐍 Python Build" >> "$GITHUB_STEP_SUMMARY"
 
     - name: "Gather Python project metadata"
       id: python-metadata
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-metadata-action@a06f1609159c097d7fc3105e487b031b59d5a28a # v0.1.3
       with:
-        path_prefix: "${{ inputs.path_prefix }}"
+        path_prefix: "${{ env.path_prefix }}"
 
     # Catch this condition early in build process
     - name: "Check project version matches pushed tags"
@@ -101,15 +102,14 @@ runs:
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-tag-push-verify-action@27478ec0a2d9acc3a3dc80da4648f4d1eb9d429e # v0.1.0
       with:
-        path_prefix: "${{ inputs.path_prefix }}"
+        path_prefix: "${{ env.path_prefix }}"
 
-    - name: "Explicit build versioning step"
-      if: inputs.tag
+    - name: "Explicit build versioning"
+      if: inputs.tag != ''
       shell: bash
       run: |
-        # Explicit build versioning step
+        # Explicit build versioning
         echo "Explicit build versioning: ${{ inputs.tag }} 💬"
-        echo "tag=${{ inputs.tag }}" >> "$GITHUB_ENV"
 
     - name: "Patch project versioning metadata"
       # Optionally patch Python project file to match requested build tag
@@ -117,8 +117,8 @@ runs:
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-version-patch-action@639b0b01baf6e9b699ca469e2cc489704a1217fd # v0.1.1
       with:
-        replacement_version: ${{ env.tag }}
-        path_prefix: "${{ inputs.path_prefix }}"
+        replacement_version: ${{ inputs.tag }}
+        path_prefix: "${{ env.path_prefix }}"
 
     - name: "Setup Python"
       # yamllint disable-line rule:line-length
@@ -135,11 +135,6 @@ runs:
 
         python -m pip install --disable-pip-version-check -q --upgrade pip
 
-        if [ ${{ inputs.path_prefix }} != '' ]; then
-          echo "Change to project directory: ${{ inputs.path_prefix }}"
-          cd ${{ inputs.path_prefix }}
-        fi
-
         # Set build parameters/variables
         echo "Action triggered by: ${GITHUB_TRIGGERING_ACTOR}"
         datetime=$(date +'%Y-%m-%d-%H%M')
@@ -148,14 +143,15 @@ runs:
         echo "datetime=${datetime}" >> "$GITHUB_OUTPUT"
 
         if [ ${{ inputs.PURGE_OUTPUT_PATH }} ] && \
-           [ -d ${{ inputs.ARTEFACT_PATH }} ]; then
+           [ -d ${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }} ]; then
           echo "Purging artefact output path prior to build ⚠️"
-          echo "Path: ${{ inputs.ARTEFACT_PATH }}"
-          rm -Rf ${{ inputs.ARTEFACT_PATH }}/*
+          echo "Path: ${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}"
+          rm -Rf ${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}/*
         fi
 
         # TOX Build
-        if [ -f tox.ini ] && [ "f${{ env.tox_build }}" = "ftrue" ]; then
+        if [ -f ${{ env.path_prefix }}/tox.ini ] && \
+        [ "f${{ env.tox_build }}" = "ftrue" ]; then
           echo "TOX configuration file present: tox.ini"
           python -m pip install --disable-pip-version-check \
             -q --upgrade tox tox-gh-actions
@@ -167,42 +163,47 @@ runs:
           fi
 
         # Python build module
-        elif [ -f pyproject.toml ] || [ -f setup.py ]; then
-          echo "Attempting build with: python -m build"
+        elif [ -f ${{ env.path_prefix }}/pyproject.toml ] || \
+        [ -f ${{ env.path_prefix }}/setup.py ]; then
+          echo "Attempting build with: python -m build ${{ env.path_prefix }}"
           python -m pip install --disable-pip-version-check -q --upgrade build
-          if (python -m build --outdir ${{ inputs.ARTEFACT_PATH }}); then
+          if (python -m build --outdir ${{ inputs.ARTEFACT_PATH }}) \
+          ${{ env.path_prefix }}; then
             echo "Build with Python module successful ✅"
           else
             echo "Build with Python module failed ❌"; exit 1
           fi
         fi
 
-    - name: "Build summary"
+    - name: "Build outputs/summary"
       shell: bash
+      # yamllint disable rule:line-length
       run: |
-        # Build summary
+        # Build outputs/summary
         echo "artefact_name=${{ env.python_project_name }}" >> "$GITHUB_OUTPUT"
-        echo "artefact_path=${{ inputs.ARTEFACT_PATH }}" >> "$GITHUB_OUTPUT"
+        echo "artefact_path=${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}" \
+          >> "$GITHUB_OUTPUT"
         echo "Artefact name: ${{ env.python_project_name }}"
-        echo "Artefact path: ${{ inputs.ARTEFACT_PATH }}"
+        echo "Artefact path: ${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}"
         VERSION=$(python --version)
         echo "Build with $VERSION successful ✅"
         echo "Build with $VERSION successful ✅" >> "$GITHUB_STEP_SUMMARY"
 
     # Note: caution with sequencing of steps
     # Twine validation after attestations/signing causes failures
+    # yamllint enable rule:line-length
     - name: "Validate artefacts with Twine"
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-twine-check-action@e72540b7947abcb1634408728ee8946738d85b2b # v0.1.0
       with:
-        path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
+        path: "${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}"
 
-    - name: "Artefact attestation for: ${{ inputs.ARTEFACT_PATH }}"
+    - name: "Perform artefact attestations"
       # yamllint disable-line rule:line-length
       uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
       if: ${{ env.attestations == 'true' }}
       with:
-        subject-path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*"
+        subject-path: "${{ env.path_prefix }}/${{ inputs.ARTEFACT_PATH }}/*"
 
     - name: "Add heading to separate signing from attestations"
       if: ${{ env.sigstore_sign == 'true' }}
@@ -220,8 +221,8 @@ runs:
         package-path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
       with:
         inputs: >-
-          ./${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*.tar.gz
-          ./${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*.whl
+          ./${{ env.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*.tar.gz
+          ./${{ env.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*.whl
 
     - name: "Upload build artefacts"
       if: ${{ env.artefact_upload == 'true' }}
@@ -229,5 +230,5 @@ runs:
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: "${{ env.python_project_name }}"
-        path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
+        path: "${{ env.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
         if-no-files-found: error

@@ -48,3 +48,4 @@ jobs:
           purge_artefact_path: true
           # Uploading build artefacts twice causes failure
           artefact_upload: false
+          tox_build: true
