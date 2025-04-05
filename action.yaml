@@ -193,7 +193,7 @@ runs:
     # Twine validation after attestations/signing causes failures
     - name: "Validate artefacts with Twine"
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-twine-check-action@e72540b7947abcb1634408728ee8946738d85b2b # v0.1.0
+      uses: lfreleng-actions/python-twine-check-action@514f458fad2cfe506da1e472d2a68c4297fcbf94 # v0.1.1
       with:
         path: "${{ inputs.path_prefix }}${{ inputs.ARTEFACT_PATH }}"
 
