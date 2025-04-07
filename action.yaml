@@ -91,7 +91,7 @@ runs:
     - name: "Gather Python project metadata"
       id: python-metadata
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-metadata-action@44edc8246f3796dbcbab96e19eb84675e53d5b7e # v0.1.4
+      uses: lfreleng-actions/python-project-metadata-action@228ef70271bf0a8a169ec0f06ce8c045c4af91d8 # v0.1.5
       with:
         path_prefix: "${{ inputs.path_prefix }}"
 
