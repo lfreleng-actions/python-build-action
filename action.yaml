@@ -115,7 +115,7 @@ runs:
       # Optionally patch Python project file to match requested build tag
       if: env.python_project_version != inputs.tag
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-version-patch-action@fd141326331d1ec9be63662380b75660cf0e00e7 # v0.1.2
+      uses: lfreleng-actions/python-project-version-patch-action@ff8c1187171dbb476a5c42b044f9e48fb2331929 # v0.1.3
       with:
         replacement_version: ${{ env.tag }}
         path_prefix: "${{ inputs.path_prefix }}"
