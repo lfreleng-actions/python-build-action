@@ -39,7 +39,7 @@ Supports these optional features:
 | ATTESTATIONS        | False    | False   | Attest build artefacts using GitHub Attestations           |
 | SIGSTORE_SIGN       | False    | False   | Uses SigStore to sign binary build artefacts               |
 | PATH_PREFIX         | False    |         | Path/directory to Python project code                      |
-| TOX_BUILD           | False    | True    | Builds using tox, if configuration file present            |
+| TOX_BUILD           | False    | False   | Builds using tox, if configuration file present            |
 
 Note: do not enable attestations for development/test builds
 
