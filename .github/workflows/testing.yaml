@@ -37,15 +37,15 @@ jobs:
       - name: "Run action: ${{ github.repository }} [Standard build]"
         uses: ./
         with:
-          path_prefix: "test-python-project/"
-          tox_build: false
+          path_prefix: "test-python-project"
 
       # Perform test build again with TOX
       - name: "Run action: ${{ github.repository }} [Build using TOX]"
         uses: ./
         with:
-          path_prefix: "test-python-project/"
+          path_prefix: "test-python-project"
           purge_artefact_path: true
+          tox_build: true
 
       # Build with explicit versioning
       - name: "Run action: ${{ github.repository }} [Explicit versioning]"
@@ -55,7 +55,6 @@ jobs:
           purge_artefact_path: true
           tag: "v2.0.0"
           artefact_path: "explicit_tag"
-          tox_build: false
 
       - name: "Validate artefacts from above build"
         shell: bash
