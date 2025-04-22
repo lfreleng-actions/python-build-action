@@ -234,7 +234,7 @@ runs:
           ./${{ env.path_prefix }}${{ inputs.ARTEFACT_PATH }}/*.whl
 
     - name: "Upload build artefacts"
-      if: ${{ env.artefact_upload == 'true' }}
+      if: ${{ inputs.artefact_upload == 'true' }}
       # yamllint disable-line rule:line-length
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
