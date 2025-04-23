@@ -117,7 +117,7 @@ runs:
     - name: "Check project version matches pushed tags"
       if: startsWith(github.ref, 'refs/tags/')
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-tag-push-verify-action@41fff68b2176cd13141a0506f3f464343414a7f6 # v0.1.1
+      uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
       with:
         path_prefix: "${{ env.path_prefix }}"
 
