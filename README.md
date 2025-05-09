@@ -20,7 +20,7 @@ Supports these optional features:
 
 ```yaml
   # Checkout code repository performed in earlier step
-  - name: "Build Python project"
+  - name: 'Build Python project'
     uses: lfreleng-actions/python-build-action@main
 ```
 
@@ -32,20 +32,20 @@ Supports these optional features:
 
 | Variable Name       | Required | Default | Description                                                |
 | ------------------- | -------- | ------- | ---------------------------------------------------------- |
-| ARTEFACT_PATH       | False    | "dist"  | Output path/directory to use for build artefacts           |
-| ARTEFACT_UPLOAD     | False    | True    | Uploads artefacts once build is complete                   |
-| PURGE_ARTEFACT_PATH | False    | False   | Deletes any pre-existing content in build/target directory |
-| TAG                 | False    |         | Explicit tag/version to use for project build              |
-| ATTESTATIONS        | False    | False   | Attest build artefacts using GitHub Attestations           |
-| SIGSTORE_SIGN       | False    | False   | Uses SigStore to sign binary build artefacts               |
-| PATH_PREFIX         | False    |         | Path/directory to Python project code                      |
-| TOX_BUILD           | False    | False   | Builds using tox, if configuration file present            |
+| artefact_path       | False    | "dist"  | Output path/directory to use for build artefacts           |
+| artefact_upload     | False    | True    | Uploads artefacts once build is complete                   |
+| purge_artefact_path | False    | False   | Deletes any pre-existing content in build/target directory |
+| tag                 | False    |         | Explicit tag/version to use for project build              |
+| attestations        | False    | False   | Attest build artefacts using GitHub Attestations           |
+| sigstore_sign       | False    | False   | Uses SigStore to sign binary build artefacts               |
+| path_prefix         | False    |         | Path/directory to Python project code                      |
+| tox_build           | False    | False   | Builds using tox, if configuration file present            |
 
 Note: do not enable attestations for development/test builds
 
 See the following links for more information on artefact signing and attestations:
 
-- [Github Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds_)
+- [Github Attestations][Github Attestations]
 - [SigStore](https://www.sigstore.dev/)
 
 <!-- markdownlint-enable MD013 -->
@@ -56,10 +56,10 @@ See the following links for more information on artefact signing and attestation
 
 | Variable Name        | Description                          |
 | -------------------- | ------------------------------------ |
-| BUILD_PYTHON_VERSION | Python version used to perform build |
-| MATRIX_JSON          | Python version supported as JSON     |
-| ARTEFACT_NAME        | Name/label for build artefacts       |
-| ARTEFACT_PATH        | Path to build artefacts              |
+| build_python_version | Python version used to perform build |
+| matrix_json          | Python version supported as JSON     |
+| artefact_name        | Name/label for build artefacts       |
+| artefact_path        | Path to build artefacts              |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -107,3 +107,7 @@ e.g. pyproject.toml file contains the option:
 ```yaml
 dynamic = [ "version" ]
 ```
+
+<!-- markdownlint-disable MD013 -->
+
+[Github Attestations]: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds
