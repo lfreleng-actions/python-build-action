@@ -210,7 +210,7 @@ runs:
 
     - name: 'Perform artefact attestations'
       # yamllint disable-line rule:line-length
-      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+      uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
       if: "${{ inputs.attestations == 'true' }}"
       with:
         subject-path: "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}/*"
