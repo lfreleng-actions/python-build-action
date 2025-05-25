@@ -33,13 +33,14 @@ Supports these optional features:
 | Variable Name       | Required | Default | Description                                                |
 | ------------------- | -------- | ------- | ---------------------------------------------------------- |
 | artefact_path       | False    | "dist"  | Output path/directory to use for build artefacts           |
-| artefact_upload     | False    | True    | Uploads artefacts once build is complete                   |
-| purge_artefact_path | False    | False   | Deletes any pre-existing content in build/target directory |
+| artefact_upload     | False    | true    | Uploads artefacts once build is complete                   |
+| purge_artefact_path | False    | false   | Deletes any pre-existing content in build/target directory |
 | tag                 | False    |         | Explicit tag/version to use for project build              |
-| attestations        | False    | False   | Attest build artefacts using GitHub Attestations           |
-| sigstore_sign       | False    | False   | Uses SigStore to sign binary build artefacts               |
+| attestations        | False    | false   | Attest build artefacts using GitHub Attestations           |
+| sigstore_sign       | False    | false   | Uses SigStore to sign binary build artefacts               |
 | path_prefix         | False    |         | Path/directory to Python project code                      |
-| tox_build           | False    | False   | Builds using tox, if configuration file present            |
+| tox_build           | False    | false   | Builds using tox, if configuration file present            |
+| skip_version_patch  | False    | false   | Skip version patching (support dynamic versioning)         |
 
 Note: do not enable attestations for development/test builds
 
