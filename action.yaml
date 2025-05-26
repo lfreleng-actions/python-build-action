@@ -27,6 +27,11 @@ inputs:
     description: 'Explicit tag/version for this build (semantic)'
     required: false
     type: string
+  skip_version_patch:
+    description: 'Skip version patching (support dynamic versioning)'
+    required: false
+    type: boolean
+    default: false
   attestations:
     # Attestations should NOT be enabled for development builds
     description: 'Apply GitHub attestations to artefacts'
@@ -79,9 +84,6 @@ runs:
 
         # Output build heading
         echo '# 🐍 Python Build' >> "$GITHUB_STEP_SUMMARY"
-        # Update PIP and build module
-        python -m pip install --disable-pip-version-check \
-          -q --upgrade pip build packaging
 
         # Set build parameters/variables
         echo "Action triggered by: ${GITHUB_TRIGGERING_ACTOR}"
@@ -121,7 +123,10 @@ runs:
 
     - name: 'Patch project versioning metadata'
       # Optionally patch Python project file to match requested build tag
-      if: env.python_project_version != inputs.tag
+      # Skip patching if skip_version_patch is true for dynamic versioning
+      # Also if tag doesn't differ from project version
+      # yamllint disable-line rule:line-length
+      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-version-patch-action@ff8c1187171dbb476a5c42b044f9e48fb2331929 # v0.1.3
       with:
@@ -142,6 +147,15 @@ runs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-
+
+    - name: 'Install build dependencies'
+      shell: bash
+      run: |
+        # Install build dependencies
+        echo 'Installing Python build dependencies...'
+        python -m pip install --disable-pip-version-check \
+          -q --upgrade build packaging
+        echo 'Build dependencies installed ✅'
 
     - name: "Build with TOX"
       # yamllint disable rule:line-length
