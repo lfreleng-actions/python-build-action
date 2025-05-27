@@ -39,11 +39,10 @@ jobs:
           path: "test-python-project"
 
       # Perform test build
-      - name: "Run action: ${{ github.repository }} [Standard build]"
+      - name: "Run action: ${{ github.repository }} [Static versioning]"
         uses: ./
         with:
           path_prefix: "test-python-project"
-
       # Perform test build again with TOX
       - name: "Run action: ${{ github.repository }} [Build using TOX]"
         uses: ./
@@ -70,3 +69,17 @@ jobs:
           else
             echo "Error: build artefact validation failed ❌"; exit 1
           fi
+
+      - name: "Swap test project to dynamic versioning"
+        shell: bash
+        run: |
+          # Swap test project to dynamic versioning
+          cp test-python-project/variations/dynamic.toml \
+            test-python-project/pyproject.toml
+
+      # Perform test build
+      - name: "Run action: ${{ github.repository }} [Dynamic versioning]"
+        continue-on-error: true  # Temporary measure to debug action
+        uses: ./
+        with:
+          path_prefix: "test-python-project"

@@ -24,7 +24,7 @@ inputs:
     # type: boolean
     default: 'false'
   tag:
-    description: 'Explicit tag/version for this build (semantic)'
+    description: 'Explicit tag/version for this build'
     required: false
     # type: string
   skip_version_patch:
@@ -58,13 +58,13 @@ inputs:
 outputs:
   build_python_version:
     description: 'Python version used to perform build (create artefacts)'
-    value: "${{ steps.python-metadata.outputs.build_python_version }}"
+    value: "${{ steps.metadata.outputs.build_python_version }}"
   matrix_json:
     description: 'Project supported Python versions as JSON'
-    value: ${{ steps.python-metadata.outputs.matrix_json }}
+    value: ${{ steps.metadata.outputs.matrix_json }}
   artefact_name:
     description: 'Build artefacts will be output to this folder/directory'
-    value: ${{ steps.python-metadata.outputs.python_project_name }}
+    value: ${{ steps.metadata.outputs.python_project_name }}
   artefact_path:
     description: 'Build artefacts will be output to this folder/directory'
     value: ${{ inputs.artefact_path }}
@@ -100,7 +100,7 @@ runs:
         fi
 
     - name: 'Gather Python project metadata'
-      id: python-metadata
+      id: metadata
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-metadata-action@b3f34fbf4a9f20949d29148fc66412006fbbcd16 # v0.1.12
       with:
@@ -108,7 +108,9 @@ runs:
 
     # Catch this condition early in build process
     - name: 'Check project version matches pushed tags'
-      if: startsWith(github.ref, 'refs/tags/')
+      # When tag pushed with static versioning, project version should match
+      # yamllint disable-line rule:line-length
+      if: startsWith(github.ref, 'refs/tags/') && env.dynamic_version == 'false'
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
       with:
@@ -119,18 +121,39 @@ runs:
       shell: bash
       run: |
         # Explicit build versioning
+        echo "build_tag=${{ inputs.tag }}" >> "$GITHUB_ENV"
         echo "Explicit build versioning: ${{ inputs.tag }} 💬"
 
-    - name: 'Patch project versioning metadata'
-      # Optionally patch Python project file to match requested build tag
-      # Skip patching if skip_version_patch is true for dynamic versioning
-      # Also if tag doesn't differ from project version
+    - name: "Get current repository tag"
+      id: current-tag
       # yamllint disable-line rule:line-length
-      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag
+      if: startsWith(github.ref, 'refs/tags/') != 'true' && inputs.tag == '' && env.dynamic_version == 'false'
+      # yamllint disable-line rule:line-length
+      uses: lfreleng-actions/repository-tags@54f320b7923f431b44546753208d150af82877f4 # v0.1.0
+
+    - name: 'Select build tag from options above'
+      if: inputs.tag == ''
+      shell: bash
+      run: |
+        # Select build tag from the various options above
+        if [ -n "${{ steps.initial-tag.outputs.tag }}" ]; then
+          echo "build_tag=${{ steps.initial-tag.outputs.tag }}" >> "$GITHUB_ENV"
+          echo "Initial build tag: ${{ steps.initial-tag.outputs.tag }} 🆕"
+        elif [ -n "${{ steps.development-tag.outputs.tag }}" ]; then
+          echo "build_tag=${{ steps.development-tag.outputs.tag }}" \
+            >> "$GITHUB_ENV"
+          echo "Development tag: ${{ steps.development-tag.outputs.tag }} 🧪"
+        fi
+
+    # Optionally patch Python project file to match requested build tag
+    # But only if tag differs from project version
+    - name: 'Patch project versioning metadata'
+      # yamllint disable-line rule:line-length
+      if: env.build_tag != '' && env.python_project_version != inputs.tag && env.dynamic_version == 'false'
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-version-patch-action@72969b8a16d004366948e3e49b250aa0549c56fa # v0.1.6
       with:
-        replacement_version: "${{ inputs.tag }}"
+        replacement_version: "${{ env.build_tag }}"
         path_prefix: "${{ inputs.path_prefix }}"
 
     - name: 'Setup Python'
@@ -138,7 +161,7 @@ runs:
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
         # yamllint disable-line rule:line-length
-        python-version: "${{ steps.python-metadata.outputs.build_python_version }}"
+        python-version: "${{ steps.metadata.outputs.build_python_version }}"
 
     - name: 'Cache Python dependencies'
       uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -224,7 +247,6 @@ runs:
 
     # Note: caution with sequencing of steps
     # Twine validation after attestations/signing causes failures
-    # yamllint enable rule:line-length
     - name: 'Validate artefacts with Twine'
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-twine-check-action@514f458fad2cfe506da1e472d2a68c4297fcbf94 # v0.1.1
