@@ -140,11 +140,23 @@ runs:
         # yamllint disable-line rule:line-length
         python-version: "${{ steps.python-metadata.outputs.build_python_version }}"
 
-    - name: 'Cache pip packages'
+    - name: 'Clean build artefacts and caches'
+      shell: bash
+      run: |
+        # Clean build artefacts and __pycache__
+        rm -rf ${{ inputs.path_prefix }}/build/ \
+               ${{ inputs.path_prefix }}/dist/ \
+               ${{ inputs.path_prefix }}/*.egg-info \
+               ${{ inputs.path_prefix }}/__pycache__
+        find ${{ inputs.path_prefix }} \
+          -type d -name '__pycache__' -exec rm -rf {} +
+
+    - name: 'Cache pip dependencies'
       uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        # yamllint disable rule:line-length
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-
 
