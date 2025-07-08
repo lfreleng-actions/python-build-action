@@ -94,6 +94,16 @@ The action performs the following steps to perform the build:
 
 Note: this build action is primarily designed around modern PEP standards.
 
+## Caching
+
+This action automatically caches Python dependencies for all major dependency
+managers (pip, poetry, pipenv) and build backends. The cache key includes the
+OS, Python version, and a hash of all relevant dependency files
+(`requirements.txt`, `pyproject.toml`, `poetry.lock`, `Pipfile*`, `setup.py`,
+`setup.cfg`).
+
+This ensures reliable, up-to-date builds for all supported Python project types.
+
 ## Notes
 
 When PURGE_ARTEFACT_PATH requested, actions/upload-artefacts will permit
