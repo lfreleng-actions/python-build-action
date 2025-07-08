@@ -38,9 +38,8 @@ Supports these optional features:
 | tag                 | False    |         | Explicit tag/version to use for project build              |
 | attestations        | False    | false   | Attest build artefacts using GitHub Attestations           |
 | sigstore_sign       | False    | false   | Uses SigStore to sign binary build artefacts               |
-| path_prefix         | False    |         | Path/directory to Python project code                      |
+| path_prefix         | False    | .       | Path/directory to Python project code                      |
 | tox_build           | False    | false   | Builds using tox, if configuration file present            |
-| skip_version_patch  | False    | false   | Skip version patching (support dynamic versioning)         |
 
 Note: do not enable attestations for development/test builds
 
