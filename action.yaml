@@ -128,7 +128,7 @@ runs:
       # yamllint disable-line rule:line-length
       if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-version-patch-action@7b7bfce3c936db8f232afe961e47e8dafcd8bcec # v0.1.4
+      uses: lfreleng-actions/python-project-version-patch-action@72969b8a16d004366948e3e49b250aa0549c56fa # v0.1.6
       with:
         replacement_version: "${{ inputs.tag }}"
         path_prefix: "${{ inputs.path_prefix }}"
