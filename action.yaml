@@ -109,17 +109,19 @@ runs:
     # Catch this condition early in build process
     - name: 'Check project version matches pushed tags'
       # yamllint disable rule:line-length
-      if: startsWith(github.ref, 'refs/tags/') && steps.python-metadata.outputs.versioning_type != 'dynamic'
+      if: github.ref_type == 'tag' && steps.python-metadata.outputs.versioning_type != 'dynamic'
       uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
       # yamllint enable rule:line-length
       with:
         path_prefix: "${{ inputs.path_prefix }}"
 
     - name: 'Fetch tags to support dynamic versioning'
-      if: steps.python-metadata.outputs.versioning_type == 'dynamic'
+      # yamllint disable rule:line-length
+      if: steps.python-metadata.outputs.versioning_type == 'dynamic' && github.ref_type != 'tag'
       shell: bash
       run: |
         # Fetch tags to support dynamic versioning
+        # ...but NOT when a tag push triggered the build
         git -C "${{ inputs.path_prefix }}" fetch --unshallow
         git -C "${{ inputs.path_prefix }}" fetch --tags origin ||\
         { echo "Error: git fetch --tags failed" >&2; exit 1; }
