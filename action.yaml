@@ -108,9 +108,10 @@ runs:
 
     # Catch this condition early in build process
     - name: 'Check project version matches pushed tags'
-      if: startsWith(github.ref, 'refs/tags/')
-      # yamllint disable-line rule:line-length
+      # yamllint disable rule:line-length
+      if: startsWith(github.ref, 'refs/tags/') && steps.python-metadata.outputs.versioning_type != 'dynamic'
       uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
+      # yamllint enable rule:line-length
       with:
         path_prefix: "${{ inputs.path_prefix }}"
 
@@ -138,7 +139,7 @@ runs:
       # Skip patching if skip_version_patch is true for dynamic versioning
       # Also if tag doesn't differ from project version
       # yamllint disable-line rule:line-length
-      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag
+      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag && steps.python-metadata.outputs.versioning_type != 'dynamic'
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-version-patch-action@72969b8a16d004366948e3e49b250aa0549c56fa # v0.1.6
       with:
