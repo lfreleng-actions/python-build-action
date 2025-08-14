@@ -114,12 +114,24 @@ runs:
       with:
         path_prefix: "${{ inputs.path_prefix }}"
 
+    - name: 'Fetch tags to support dynamic versioning'
+      if: steps.python-metadata.outputs.versioning_type == 'dynamic'
+      shell: bash
+      run: |
+        # Fetch tags to support dynamic versioning
+        git -C "${{ inputs.path_prefix }}" fetch --unshallow
+        git -C "${{ inputs.path_prefix }}" fetch --tags origin ||\
+        { echo "Error: git fetch --tags failed" >&2; exit 1; }
+        echo "Dynamic versioning: fetched repository tags 💬" \
+          >> "$GITHUB_STEP_SUMMARY"
+
     - name: 'Explicit build versioning'
       if: inputs.tag != ''
       shell: bash
       run: |
         # Explicit build versioning
-        echo "Explicit build versioning: ${{ inputs.tag }} 💬"
+        echo "Explicit build versioning: ${{ inputs.tag }} 💬" \
+          >> "$GITHUB_STEP_SUMMARY"
 
     - name: 'Patch project versioning metadata'
       # Optionally patch Python project file to match requested build tag
