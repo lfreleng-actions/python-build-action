@@ -79,8 +79,6 @@ jobs:
 
       # Perform test build for dynamically versioned project
       - name: "Run action: ${{ github.repository }} [Dynamic versioning]"
-        # Expect to fail until support is fully implemented
-        continue-on-error: true
         uses: ./
         with:
           path_prefix: "test-python-project"
