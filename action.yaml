@@ -115,6 +115,16 @@ runs:
       with:
         path_prefix: "${{ inputs.path_prefix }}"
 
+    - name: 'Unshallow the repository'
+      # yamllint disable rule:line-length
+      if: steps.python-metadata.outputs.versioning_type == 'dynamic'
+      shell: bash
+      run: |
+        # Unshallow the repository so tags can be matched to refs
+        git -C "${{ inputs.path_prefix }}" fetch --unshallow
+        echo "Performed an unshallow fetch 💬" \
+          >> "$GITHUB_STEP_SUMMARY"
+
     - name: 'Fetch tags to support dynamic versioning'
       # yamllint disable rule:line-length
       if: steps.python-metadata.outputs.versioning_type == 'dynamic' && github.ref_type != 'tag'
@@ -122,7 +132,6 @@ runs:
       run: |
         # Fetch tags to support dynamic versioning
         # ...but NOT when a tag push triggered the build
-        git -C "${{ inputs.path_prefix }}" fetch --unshallow
         git -C "${{ inputs.path_prefix }}" fetch --tags origin ||\
         { echo "Error: git fetch --tags failed" >&2; exit 1; }
         echo "Dynamic versioning: fetched repository tags 💬" \
