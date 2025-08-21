@@ -74,11 +74,20 @@ runs:
   steps:
     - name: 'Setup action/environment'
       shell: bash
+      env:
+        INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUT_ARTEFACT_PATH: ${{ inputs.artefact_path }}
+        INPUT_PURGE_ARTEFACT_PATH: ${{ inputs.purge_artefact_path }}
       run: |
         # Setup action/environment
 
+        # Set input variables
+        path_prefix="${INPUT_PATH_PREFIX}"
+        artefact_path="${INPUT_ARTEFACT_PATH}"
+        purge_artefact_path="${INPUT_PURGE_ARTEFACT_PATH}"
+
         # Verify path_prefix a valid directory path
-        if [ ! -d "${{ inputs.path_prefix }}" ]; then
+        if [ ! -d "$path_prefix" ]; then
           echo 'Error: invalid path/prefix to project directory ❌'; exit 1
         fi
 
@@ -92,11 +101,12 @@ runs:
         echo "datetime=$datetime" >> "$GITHUB_ENV"
         echo "datetime=${datetime}" >> "$GITHUB_OUTPUT"
 
-        if [ ${{ inputs.purge_artefact_path }} ] && \
-           [ -d ${{ inputs.path_prefix }}/${{ inputs.artefact_path }} ]; then
+        if [ "$purge_artefact_path" != "false" ] && \
+          [ -n "$purge_artefact_path" ] && \
+          [ -d "$path_prefix/$artefact_path" ]; then
           echo "Purging artefact output path prior to build ⚠️"
-          echo "Path: ${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"
-          rm -Rf ${{ inputs.path_prefix }}/${{ inputs.artefact_path }}/*
+          echo "Path: $path_prefix/$artefact_path"
+          rm -Rf "$path_prefix/$artefact_path"/*
         fi
 
     - name: 'Gather Python project metadata'
@@ -119,11 +129,14 @@ runs:
       # yamllint disable rule:line-length
       if: steps.python-metadata.outputs.versioning_type == 'dynamic' && github.ref_type != 'tag'
       shell: bash
+      env:
+        INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
       run: |
         # Fetch tags to support dynamic versioning
         # ...but NOT when a tag push triggered the build
-        git -C "${{ inputs.path_prefix }}" fetch --unshallow
-        git -C "${{ inputs.path_prefix }}" fetch --tags origin ||\
+        path_prefix="${INPUT_PATH_PREFIX}"
+        git -C "$path_prefix" fetch --unshallow
+        git -C "$path_prefix" fetch --tags origin ||\
         { echo "Error: git fetch --tags failed" >&2; exit 1; }
         echo "Dynamic versioning: fetched repository tags 💬" \
           >> "$GITHUB_STEP_SUMMARY"
@@ -131,9 +144,11 @@ runs:
     - name: 'Explicit build versioning'
       if: inputs.tag != ''
       shell: bash
+      env:
+        INPUT_TAG: ${{ inputs.tag }}
       run: |
         # Explicit build versioning
-        echo "Explicit build versioning: ${{ inputs.tag }} 💬" \
+        echo "Explicit build versioning: $INPUT_TAG 💬" \
           >> "$GITHUB_STEP_SUMMARY"
 
     - name: 'Patch project versioning metadata'
@@ -186,16 +201,19 @@ runs:
       # yamllint disable rule:line-length
       if: "${{ inputs.tox_build == 'true' }}"
       shell: bash
+      env:
+        INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
       run: |
         # Perform build with TOX
         echo "Building with tox: some inputs/options may be disregarded ⚠️"
 
-        if [ -f "${{ inputs.path_prefix }}/tox.ini" ]; then
-          echo "TOX configuration file: ${{ inputs.path_prefix }}/tox.ini"
+        path_prefix="${INPUT_PATH_PREFIX}"
+        if [ -f "$path_prefix/tox.ini" ]; then
+          echo "TOX configuration file: $path_prefix/tox.ini"
           python -m pip install --disable-pip-version-check \
             -q --upgrade tox tox-gh-actions
-          echo "Building with: tox --root ${{ inputs.path_prefix }} -c ${{ inputs.path_prefix }}/tox.ini -e build"
-          if (tox --root ${{ inputs.path_prefix }} -c ${{ inputs.path_prefix }}/tox.ini -e build); then
+          echo "Building with: tox --root \"$path_prefix\" -c \"$path_prefix\"/tox.ini -e build"
+          if (tox --root "$path_prefix" -c "$path_prefix/tox.ini" -e build); then
             echo 'Build with TOX successful ✅'
           else
             echo 'Build with TOX failed ❌'; exit 1
@@ -208,13 +226,18 @@ runs:
       # yamllint enable rule:line-length
       if: "${{ inputs.tox_build != 'true' }}"
       shell: bash
+      env:
+        INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUT_ARTEFACT_PATH: ${{ inputs.artefact_path }}
       run: |
         # Build Python project
-        if [ -f "${{ inputs.path_prefix }}/pyproject.toml" ] || \
-        [ -f "${{ inputs.path_prefix }}/setup.py" ]; then
+        path_prefix="${INPUT_PATH_PREFIX}"
+        artefact_path="${INPUT_ARTEFACT_PATH}"
+        if [ -f "$path_prefix/pyproject.toml" ] || \
+        [ -f "$path_prefix/setup.py" ]; then
           if (python -m build --outdir \
-            "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}" \
-            "${{ inputs.path_prefix }}"); then
+            "$path_prefix/$artefact_path" \
+            "$path_prefix"); then
             echo 'Build with Python module successful ✅'
           else
             echo 'Build with Python module failed ❌'; exit 1
@@ -225,14 +248,19 @@ runs:
 
     - name: 'Build outputs/summary'
       shell: bash
+      env:
+        INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUT_ARTEFACT_PATH: ${{ inputs.artefact_path }}
       # yamllint disable rule:line-length
       run: |
         # Build outputs/summary
+        path_prefix="${INPUT_PATH_PREFIX}"
+        artefact_path="${INPUT_ARTEFACT_PATH}"
         echo "artefact_name=${{ env.python_project_name }}" >> "$GITHUB_OUTPUT"
-        echo "artefact_path=${{ inputs.path_prefix }}/${{ inputs.artefact_path }}" \
+        echo "artefact_path=$path_prefix/$artefact_path" \
           >> "$GITHUB_OUTPUT"
         echo "Artefact name: ${{ env.python_project_name }}"
-        echo "Artefact path: ${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"
+        echo "Artefact path: $path_prefix/$artefact_path"
         python_version=$(python --version)
         echo "Build with Python $python_version successful ✅"
         echo "Build with $python_version successful ✅" >> "$GITHUB_STEP_SUMMARY"
