@@ -70,16 +70,47 @@ jobs:
             echo "Error: build artefact validation failed ❌"; exit 1
           fi
 
-      - name: "Swap test project to dynamic versioning"
+      - name: "Setup dynamic versioning/PDM"
         shell: bash
         run: |
           # Swap test project to dynamic versioning
-          cp test-python-project/variations/dynamic.toml \
+          cp test-python-project/variations/dynamic-pdm.toml \
             test-python-project/pyproject.toml
 
       # Perform test build for dynamically versioned project
-      - name: "Run action: ${{ github.repository }} [Dynamic versioning]"
+      - name: "Run action: ${{ github.repository }} [Dynamic versioning/PDM]"
         uses: ./
+        with:
+          path_prefix: "test-python-project"
+          purge_artefact_path: true
+
+      - name: "Setup dynamic versioning/PDM"
+        shell: bash
+        run: |
+          # Swap test project to dynamic versioning
+          cp test-python-project/variations/dynamic-setuptools.toml \
+            test-python-project/pyproject.toml
+
+      # Perform test build for dynamically versioned project
+      # yamllint disable-line rule:line-length
+      - name: "Run action: ${{ github.repository }} [Dynamic versioning/Setuptools]"
+        uses: ./
+        continue-on-error: true  # Needed until fully supported
+        with:
+          path_prefix: "test-python-project"
+          purge_artefact_path: true
+
+      - name: "Setup dynamic versioning/Poetry"
+        shell: bash
+        run: |
+          # Swap test project to dynamic versioning
+          cp test-python-project/variations/dynamic-poetry.toml \
+            test-python-project/pyproject.toml
+
+      # Perform test build for dynamically versioned project
+      - name: "Run action: ${{ github.repository }} [Dynamic versioning/Poetry]"
+        uses: ./
+        continue-on-error: true  # Needed until fully supported
         with:
           path_prefix: "test-python-project"
           purge_artefact_path: true
