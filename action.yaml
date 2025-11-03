@@ -63,13 +63,13 @@ inputs:
 outputs:
   build_python_version:
     description: 'Python version used to perform build (create artefacts)'
-    value: "${{ steps.python-metadata.outputs.build_python_version }}"
+    value: "${{ steps.metadata.outputs.python_build_version }}"
   matrix_json:
     description: 'Project supported Python versions as JSON'
-    value: ${{ steps.python-metadata.outputs.matrix_json }}
+    value: ${{ steps.metadata.outputs.python_matrix_json }}
   artefact_name:
     description: 'Build artefacts will be output to this folder/directory'
-    value: ${{ steps.python-metadata.outputs.python_project_name }}
+    value: ${{ steps.metadata.outputs.project_name }}
   artefact_path:
     description: 'Build artefacts will be output to this folder/directory'
     value: ${{ inputs.artefact_path }}
@@ -115,16 +115,19 @@ runs:
         fi
 
     - name: 'Gather Python project metadata'
-      id: python-metadata
+      id: metadata
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-metadata-action@c78be20a64d127b518a16e1370b89ce00f94ca3f # v0.1.17
+      uses: modeseven-lfreleng-actions/build-metadata-action@initial-update
       with:
-        path_prefix: "${{ inputs.path_prefix }}"
+        path: "${{ inputs.path_prefix }}"
+        output_format: summary
+        include_environment: true
+        use_version_extract: true
 
     # Catch this condition early in build process
     - name: 'Check project version matches pushed tags'
       # yamllint disable rule:line-length
-      if: github.ref_type == 'tag' && steps.python-metadata.outputs.versioning_type != 'dynamic'
+      if: github.ref_type == 'tag' && steps.metadata.outputs.versioning_type != 'dynamic'
       uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
       # yamllint enable rule:line-length
       with:
@@ -132,7 +135,7 @@ runs:
 
     - name: 'Fetch tags to support dynamic versioning'
       # yamllint disable rule:line-length
-      if: steps.python-metadata.outputs.versioning_type == 'dynamic' && github.ref_type != 'tag'
+      if: github.ref_type != 'tag' && steps.metadata.outputs.versioning_type == 'dynamic'
       shell: bash
       env:
         INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
@@ -161,7 +164,7 @@ runs:
       # Skip patching if skip_version_patch is true for dynamic versioning
       # Also if tag doesn't differ from project version
       # yamllint disable-line rule:line-length
-      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && env.python_project_version != inputs.tag && steps.python-metadata.outputs.versioning_type != 'dynamic'
+      if: inputs.skip_version_patch != 'true' && inputs.tag != '' && steps.metadata.outputs.project_version != inputs.tag && steps.metadata.outputs.version_is_dynamic != 'true'
       # yamllint disable-line rule:line-length
       uses: lfreleng-actions/python-project-version-patch-action@72969b8a16d004366948e3e49b250aa0549c56fa # v0.1.6
       with:
@@ -173,7 +176,7 @@ runs:
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
         # yamllint disable-line rule:line-length
-        python-version: "${{ steps.python-metadata.outputs.build_python_version }}"
+        python-version: "${{ steps.metadata.outputs.python_build_version }}"
 
     - name: 'Clear Python dependency caches'
       if: "${{ inputs.clear_cache == 'true' }}"
@@ -200,10 +203,10 @@ runs:
           .tox
         # yamllint disable rule:line-length
         key: >-
-          python-${{ runner.os }}-${{ steps.python-metadata.outputs.build_python_version }}-
+          python-${{ runner.os }}-${{ steps.metadata.outputs.python_build_version }}-
           ${{ hashFiles('**/requirements*.txt', '**/pyproject.toml', '**/poetry.lock', '**/Pipfile*', '**/setup.py', '**/setup.cfg') }}
         restore-keys: |
-          python-${{ runner.os }}-${{ steps.python-metadata.outputs.build_python_version }}-
+          python-${{ runner.os }}-${{ steps.metadata.outputs.python_build_version }}-
           python-${{ runner.os }}-
         # yamllint enable rule:line-length
 
@@ -275,10 +278,10 @@ runs:
         # Build outputs/summary
         path_prefix="${INPUT_PATH_PREFIX}"
         artefact_path="${INPUT_ARTEFACT_PATH}"
-        echo "artefact_name=${{ env.python_project_name }}" >> "$GITHUB_OUTPUT"
+        echo "artefact_name=${{ steps.metadata.outputs.project_name }}" >> "$GITHUB_OUTPUT"
         echo "artefact_path=$path_prefix/$artefact_path" \
           >> "$GITHUB_OUTPUT"
-        echo "Artefact name: ${{ env.python_project_name }}"
+        echo "Artefact name: ${{ steps.metadata.outputs.project_name }}"
         echo "Artefact path: $path_prefix/$artefact_path"
         python_version=$(python --version)
         echo "Build with Python $python_version successful ✅"
@@ -325,7 +328,7 @@ runs:
       # yamllint disable-line rule:line-length
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
-        name: "${{ env.python_project_name }}"
+        name: "${{ steps.metadata.outputs.project_name }}"
         path: "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"
         if-no-files-found: error
         overwrite: "${{ inputs.purge_artefact_path }}"
