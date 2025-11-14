@@ -41,6 +41,7 @@ Supports these optional features:
 | path_prefix         | False    |         | Path/directory to Python project code                      |
 | tox_build           | False    | false   | Builds using tox, if configuration file present            |
 | skip_version_patch  | False    | false   | Skip version patching (support dynamic versioning)         |
+| clear_cache         | False    | false   | Clears Python dependency caches                            |
 
 Note: do not enable attestations for development/test builds
 
@@ -103,6 +104,47 @@ OS, Python version, and a hash of all relevant dependency files
 `setup.cfg`).
 
 This ensures reliable, up-to-date builds for all supported Python project types.
+
+### Cache Clearing
+
+To clear all Python dependency caches for the repository, set the
+`clear_cache` input to `true`. This will:
+
+1. Delete all existing Python dependency caches, unconditionally
+2. Force fresh installation of all dependencies
+3. Create a new cache for future workflow runs
+
+This is useful when:
+
+- Troubleshooting dependency resolution issues
+- Testing with Python 3.14 or other new Python versions where cached
+  dependencies may be incompatible
+- Ensuring a clean build environment
+
+**Note:** Requires `actions: write` permission in the workflow.
+
+Example with `workflow_dispatch`:
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      clear_cache:
+        description: 'Clear all Python dependency caches'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      actions: write  # Required for cache deletion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lfreleng-actions/python-build-action@main
+        with:
+          clear_cache: ${{ github.event.inputs.clear_cache }}
+```
 
 ## Notes
 
