@@ -54,6 +54,11 @@ inputs:
     required: false
     # type: boolean
     default: 'false'
+  clear_cache:
+    description: 'Clear all Python dependency caches for this repository'
+    required: false
+    # type: boolean
+    default: 'false'
 
 outputs:
   build_python_version:
@@ -169,6 +174,20 @@ runs:
       with:
         # yamllint disable-line rule:line-length
         python-version: "${{ steps.python-metadata.outputs.build_python_version }}"
+
+    - name: 'Clear Python dependency caches'
+      if: "${{ inputs.clear_cache == 'true' }}"
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Clear Python dependency caches
+        echo "🗑️ Clearing Python dependency caches..."
+
+        # Delete caches matching python cache keys for this repository
+        gh cache delete --all
+
+        echo "Cache clearing completed ✅" >> "$GITHUB_STEP_SUMMARY"
 
     - name: 'Cache Python dependencies'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
