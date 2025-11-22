@@ -5,8 +5,7 @@
 # Action test/validation workflow
 name: "Test GitHub Action 🧪"
 
-# yamllint disable-line rule:truthy
-on:
+on: # yamllint disable-line rule:truthy
   workflow_dispatch:
   push:
     branches: ["main"]
@@ -20,30 +19,33 @@ concurrency:
 permissions: {}
 
 jobs:
-  ### Test the GitHub Action in this Repository ###
   tests:
     name: "Test local GitHub Action"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 10 # Increase this timeout value as needed
+    timeout-minutes: 10
     steps:
+      # Harden the runner used by this workflow
+      # yamllint disable-line rule:line-length
+      - uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: 'audit'
+
       - name: "Checkout repository"
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      # Perform setup prior to running test(s)
       - name: "Checkout sample project repository"
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: "lfreleng-actions/test-python-project"
           path: "test-python-project"
 
-      # Perform test build
       - name: "Run action: ${{ github.repository }} [Static versioning]"
         uses: ./
         with:
           path_prefix: "test-python-project"
-      # Perform test build again with TOX
+
       - name: "Run action: ${{ github.repository }} [Build using TOX]"
         uses: ./
         with:
@@ -51,7 +53,6 @@ jobs:
           purge_artefact_path: true
           tox_build: true
 
-      # Build with explicit versioning
       - name: "Run action: ${{ github.repository }} [Explicit versioning]"
         uses: ./
         with:
@@ -60,26 +61,106 @@ jobs:
           tag: "v2.0.0"
           artefact_path: "explicit_tag"
 
-      - name: "Validate artefacts from above build"
+      - name: "Validate artefacts from explicit build"
         shell: bash
         run: |
-          # Validate artefacts from above build
+          set -euo pipefail
           if (find 'test-python-project/explicit_tag' -name '*2.0.0*'); then
             echo "Explicit tag/artefact path as expected ✅"
           else
             echo "Error: build artefact validation failed ❌"; exit 1
           fi
 
-      - name: "Swap test project to dynamic versioning"
+      - name: "Setup dynamic versioning/PDM"
         shell: bash
         run: |
-          # Swap test project to dynamic versioning
+          set -euo pipefail
           cp test-python-project/variations/dynamic.toml \
             test-python-project/pyproject.toml
 
-      # Perform test build for dynamically versioned project
-      - name: "Run action: ${{ github.repository }} [Dynamic versioning]"
+      - name: "Run action: ${{ github.repository }} [Dynamic versioning/PDM]"
         uses: ./
         with:
           path_prefix: "test-python-project"
           purge_artefact_path: true
+
+  test-python-projects:
+    name: "${{ matrix.project }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test projects are defined in the TEST_PROJECTS repository variable
+        # Deliberately includes a wide variety of sources
+        # All are public and accessible to the runner
+        project: ${{ fromJSON(vars.TEST_PROJECTS) }}
+
+    steps:
+      # Harden the runner used by this workflow
+      # yamllint disable-line rule:line-length
+      - uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: 'audit'
+
+      - name: "Checkout action repository"
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: "Checkout project repository: ${{ matrix.project }}"
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: "${{ matrix.project }}"
+          path: "project"
+
+      - name: "Building: ${{ matrix.project }}"
+        uses: ./
+        with:
+          path_prefix: "project"
+
+  test-multi-arch-projects:
+    name: "${{ matrix.project }} [${{ matrix.arch.name }}]"
+    runs-on: ${{ matrix.arch.runner }}
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Multi-arch test projects are defined in the MULTI_ARCH_TEST_PROJECTS
+        # repository variable; these build for both x86_64 and ARM64
+        project: ${{ fromJSON(vars.MULTI_ARCH_TEST_PROJECTS) }}
+        arch:
+          - name: x86_64
+            runner: ubuntu-latest
+          - name: aarch64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      # Harden the runner used by this workflow
+      # yamllint disable-line rule:line-length
+      - uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: 'audit'
+
+      - name: "Checkout action repository"
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: "Checkout project repository: ${{ matrix.project }}"
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: "${{ matrix.project }}"
+          path: "project"
+
+      - name: "Building: ${{ matrix.project }} [${{ matrix.arch.name }}]"
+        uses: ./
+        with:
+          path_prefix: "project"
+          auditwheel: true
+          manylinux_version: manylinux_2_34
+          build_formats: wheel
