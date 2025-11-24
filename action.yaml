@@ -125,7 +125,7 @@ runs:
     - name: 'Check project version matches pushed tags'
       # yamllint disable rule:line-length
       if: github.ref_type == 'tag' && steps.python-metadata.outputs.versioning_type != 'dynamic'
-      uses: lfreleng-actions/python-project-tag-push-verify-action@0ddfb400a8b6f1178eabbe342c91938ecf1ab01e # v0.1.2
+      uses: lfreleng-actions/python-project-tag-push-verify-action@f38729e7497f1a86e2f2e034321ec162ddee1843 # v0.1.3
       # yamllint enable rule:line-length
       with:
         path_prefix: "${{ inputs.path_prefix }}"
