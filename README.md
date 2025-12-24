@@ -145,13 +145,20 @@ jobs:
 | build_formats       | False    | both           | Build formats: wheel, sdist, or both                        |
 | auditwheel          | False    | false          | Run auditwheel to repair wheels for manylinux compatibility |
 | manylinux_version   | False    | manylinux_2_34 | Target manylinux version for auditwheel                     |
+| make                | False    | false          | Run make before building                                    |
+| make_args           | False    |                | Arguments/flags sent to make command                        |
 
 <!-- markdownlint-enable MD013 -->
 
-> **Note:** When building for different platforms/architectures, use
-> `artefact_name` to avoid artefact name conflicts.
+### Input Notes
 
-**Note:** Do not enable attestations or signing for development/test builds.
+- When building for different platforms/architectures, use `artefact_name`
+  to avoid artefact name conflicts.
+- The `make` input is useful for Python projects with C extensions or other
+  compiled components that require build preparation steps via make before
+  the Python build process. Use `make_args` to pass specific targets or
+  flags.
+- Do not enable attestations or signing for development/test builds.
 
 See the following links for more information on artefact signing and
 attestations:
