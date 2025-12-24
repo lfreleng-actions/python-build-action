@@ -230,27 +230,17 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        set -euo pipefail
         # Clear Python dependency caches
-        echo "🗑️ Clearing Python dependency caches..."
-
-        # Delete caches matching python cache keys for this repository
-        # Capture output and exit code to distinguish between errors and "no caches"
-        output=$(gh cache delete --all 2>&1) || exit_code=$?
-
+        echo "Clearing Python dependency caches 🗑️"
+        output="$(gh cache delete --all 2>&1)" || exit_code=$?
         if [ -z "${exit_code:-}" ]; then
-          # Success - caches were deleted
           echo "Cache clearing completed ✅" >> "$GITHUB_STEP_SUMMARY"
         else
-          # Failed - check if it's benign (no caches) or an actual error
-          if echo "$output" | grep -qi "no caches found\|no cache entries found"; then
-            echo "No caches found to delete 💬" >> "$GITHUB_STEP_SUMMARY"
-          else
-            # Actual error occurred (auth, permissions, network, etc.)
-            echo "❌ Error clearing caches: $output" >> "$GITHUB_STEP_SUMMARY"
-            echo "$output"
-            exit 1
-          fi
+          # Cache clearing should not be fatal; minimal output to summary
+          echo "Cache clearing was not successful 💬" >> "$GITHUB_STEP_SUMMARY"
+          # More detailed information goes to the console/log output
+          echo "gh cache exit code: ${exit_code} 💬"
+          echo "$output"
         fi
 
     - name: 'Cache Python dependencies'
