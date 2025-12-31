@@ -86,6 +86,16 @@ inputs:
     required: false
     # type: string
     default: 'manylinux_2_34'
+  make:
+    description: 'Run make before building'
+    required: false
+    # type: boolean
+    default: 'false'
+  make_args:
+    description: 'Arguments/flags sent to make command'
+    required: false
+    # type: string
+    default: ''
 
 outputs:
   build_python_version:
@@ -280,6 +290,26 @@ runs:
         python -m pip install --disable-pip-version-check \
           -q --upgrade build packaging
         echo 'Build dependencies installed ✅'
+
+    - name: 'Prepare make arguments'
+      if: inputs.make == 'true'
+      id: make_prep
+      shell: bash
+      run: |
+        # Prepare make arguments
+        args="${{ inputs.make_args }}"
+        if [ -n "${{ inputs.path_prefix }}" ] && \
+           [ "${{ inputs.path_prefix }}" != '.' ]; then
+          args="-C \"${{ inputs.path_prefix }}\" $args"
+        fi
+        echo "make_args=$args" >> "$GITHUB_OUTPUT"
+
+    - name: 'Conditionally run make'
+      if: inputs.make == 'true'
+      # yamllint disable-line rule:line-length
+      uses: lfreleng-actions/make-action@e07201ee8e3d1f34800f1c63f58415624a8c054c  # v0.1.3
+      with:
+        make_args: ${{ steps.make_prep.outputs.make_args }}
 
     - name: "Build with TOX"
       # yamllint disable rule:line-length
