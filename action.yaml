@@ -179,7 +179,9 @@ runs:
         # ...but NOT when a tag push triggered the build
         path_prefix="${{ inputs.path_prefix }}"
         # Only unshallow if the repository is a shallow clone
-        if git -C "$path_prefix" rev-parse --is-shallow-repository | grep -q true; then
+        shallow_repo=$(git -C "$path_prefix" rev-parse --is-shallow-repository 2>/dev/null) || \
+          { echo "Error: git rev-parse --is-shallow-repository failed" >&2; exit 1; }
+        if [ "$shallow_repo" = "true" ]; then
           echo "Unshallowing repository ⏩"
           git -C "$path_prefix" fetch --unshallow
         fi
