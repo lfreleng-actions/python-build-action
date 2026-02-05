@@ -110,6 +110,9 @@ outputs:
   artefact_path:
     description: 'Full path to build artefacts directory'
     value: ${{ steps.build_summary.outputs.artefact_path }}
+  path_prefix:
+    description: 'Path prefix to Python project (pass to downstream actions)'
+    value: ${{ inputs.path_prefix }}
 
 runs:
   using: 'composite'

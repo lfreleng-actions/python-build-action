@@ -201,12 +201,54 @@ permissions:
 
 <!-- markdownlint-disable MD013 -->
 
-| Variable Name        | Description                                    |
-| -------------------- | ---------------------------------------------- |
-| build_python_version | Python version used to perform build           |
-| matrix_json          | Project supported Python versions as JSON      |
-| artefact_name        | Project name used for build artefacts          |
-| artefact_path        | Full path to build artefacts directory         |
+| Variable Name        | Description                                       |
+| -------------------- | ------------------------------------------------- |
+| build_python_version | Python version used to perform build              |
+| matrix_json          | Project supported Python versions as JSON         |
+| artefact_name        | Project name used for build artefacts             |
+| artefact_path        | Full path to build artefacts directory            |
+| path_prefix          | Path prefix to Python project (for downstream)    |
+
+<!-- markdownlint-enable MD013 -->
+
+### Using path_prefix with Downstream Actions
+
+When your Python project lives in a subdirectory (not the repository
+root), you must pass `path_prefix` to both this action and any downstream
+actions like `python-test-action`, `python-audit-action`, and
+`python-sbom-action`. The `path_prefix` output makes this easier by passing
+the value through for use in later jobs:
+
+<!-- markdownlint-disable MD013 -->
+
+```yaml
+jobs:
+  python-build:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix_json: "${{ steps.python-build.outputs.matrix_json }}"
+      path_prefix: "${{ steps.python-build.outputs.path_prefix }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: 'Build Python project'
+        id: python-build
+        uses: lfreleng-actions/python-build-action@main
+        with:
+          path_prefix: 'my-python-project/'
+
+  python-tests:
+    runs-on: ubuntu-latest
+    needs: python-build
+    strategy:
+      matrix: "${{ fromJSON(needs.python-build.outputs.matrix_json) }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: 'Run tests'
+        uses: lfreleng-actions/python-test-action@main
+        with:
+          python_version: ${{ matrix.python-version }}
+          path_prefix: ${{ needs.python-build.outputs.path_prefix }}
+```
 
 <!-- markdownlint-enable MD013 -->
 
