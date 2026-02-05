@@ -110,6 +110,9 @@ outputs:
   artefact_path:
     description: 'Full path to build artefacts directory'
     value: ${{ steps.build_summary.outputs.artefact_path }}
+  path_prefix:
+    description: 'Path prefix to Python project (pass to downstream actions)'
+    value: ${{ inputs.path_prefix }}
 
 runs:
   using: 'composite'
@@ -117,7 +120,6 @@ runs:
     - name: 'Setup action/environment'
       shell: bash
       run: |
-        set -euo pipefail
         # Setup action/environment
 
         # Set input variables
@@ -173,11 +175,16 @@ runs:
       if: github.ref_type != 'tag' && steps.metadata.outputs.python_versioning_type == 'dynamic'
       shell: bash
       run: |
-        set -euo pipefail
         # Fetch tags to support dynamic versioning
         # ...but NOT when a tag push triggered the build
         path_prefix="${{ inputs.path_prefix }}"
-        git -C "$path_prefix" fetch --unshallow
+        # Only unshallow if the repository is a shallow clone
+        shallow_repo=$(git -C "$path_prefix" rev-parse --is-shallow-repository 2>/dev/null) || \
+          { echo "Error: git rev-parse --is-shallow-repository failed" >&2; exit 1; }
+        if [ "$shallow_repo" = "true" ]; then
+          echo "Unshallowing repository ⏩"
+          git -C "$path_prefix" fetch --unshallow
+        fi
         git -C "$path_prefix" fetch --tags origin ||\
         { echo "Error: git fetch --tags failed" >&2; exit 1; }
         echo "Dynamic versioning: fetched repository tags 💬" \
@@ -187,7 +194,6 @@ runs:
       if: inputs.tag != ''
       shell: bash
       run: |
-        set -euo pipefail
         # Explicit build versioning
         echo "Explicit build versioning: ${{ inputs.tag }} 💬" \
           >> "$GITHUB_STEP_SUMMARY"
@@ -211,7 +217,6 @@ runs:
       id: python_version
       shell: bash
       run: |
-        set -euo pipefail
         # Determine Python version for build
         if [ -n "${{ inputs.python_version }}" ]; then
           python_version="${{ inputs.python_version }}"
@@ -274,7 +279,6 @@ runs:
     - name: 'Install build dependencies'
       shell: bash
       run: |
-        set -euo pipefail
         # Install build dependencies
         echo 'Installing Python build dependencies...'
         python -m pip install --disable-pip-version-check \
@@ -307,7 +311,6 @@ runs:
       shell: bash
       run: |
         # Build with TOX
-        set -euo pipefail
         echo "Building with tox: some inputs/options may be disregarded ⚠️"
 
         path_prefix="${{ inputs.path_prefix }}"
@@ -330,7 +333,6 @@ runs:
       if: inputs.tox_build != 'true'
       shell: bash
       run: |
-        set -euo pipefail
         # Build Python project
         path_prefix="${{ inputs.path_prefix }}"
         artefact_path="${{ inputs.artefact_path }}"
@@ -374,7 +376,6 @@ runs:
       if: inputs.auditwheel == 'true' && inputs.build_formats != 'sdist'
       shell: bash
       run: |
-        set -euo pipefail
         # Repair wheels to manylinux format for PyPI compatibility
         path_prefix="${{ inputs.path_prefix }}"
         artefact_path="${{ inputs.artefact_path }}"
@@ -439,7 +440,6 @@ runs:
       shell: bash
       # yamllint disable rule:line-length
       run: |
-        set -euo pipefail
         # Build outputs/summary
         path_prefix="${{ inputs.path_prefix }}"
         artefact_path="${{ inputs.artefact_path }}"
@@ -486,7 +486,6 @@ runs:
       if: inputs.sigstore_sign == 'true'
       shell: bash
       run: |
-        set -euo pipefail
         # Add heading to separate signing from attestations
         echo '### Sigstore Signing ✍🏼' >> "$GITHUB_STEP_SUMMARY"
 
@@ -496,7 +495,6 @@ runs:
       shell: bash
       # yamllint disable rule:line-length
       run: |
-        set -euo pipefail
         # Build list of files to sign based on build_formats
         files_to_sign=()
 
