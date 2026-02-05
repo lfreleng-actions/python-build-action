@@ -180,7 +180,11 @@ runs:
         # Fetch tags to support dynamic versioning
         # ...but NOT when a tag push triggered the build
         path_prefix="${{ inputs.path_prefix }}"
-        git -C "$path_prefix" fetch --unshallow
+        # Only unshallow if the repository is a shallow clone
+        if git -C "$path_prefix" rev-parse --is-shallow-repository | grep -q true; then
+          echo "Unshallowing repository ⏩"
+          git -C "$path_prefix" fetch --unshallow
+        fi
         git -C "$path_prefix" fetch --tags origin ||\
         { echo "Error: git fetch --tags failed" >&2; exit 1; }
         echo "Dynamic versioning: fetched repository tags 💬" \
