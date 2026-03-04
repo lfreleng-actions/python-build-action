@@ -164,6 +164,7 @@ jobs:
           auditwheel: true
           manylinux_version: manylinux_2_34
           build_formats: wheel
-          # Both projects in MULTI_ARCH_TEST_PROJECTS have Makefiles
+          # Projects in MULTI_ARCH_TEST_PROJECTS must provide
+          # deps-nss and env-github-actions Makefile targets.
           make: true
-          make_args: "-j$(nproc)"
+          make_args: "deps-nss env-github-actions"
