@@ -157,10 +157,15 @@ jobs:
           repository: "${{ matrix.project }}"
           path: "project"
 
+      # yamllint disable-line rule:line-length
       - name: "Building: ${{ matrix.project }} [${{ matrix.arch.name }}]"
         uses: ./
         with:
           path_prefix: "project"
+          # Disambiguate artefact names across architectures
+          # to avoid upload-artifact 409 Conflict errors
+          # yamllint disable-line rule:line-length
+          artefact_name: "${{ matrix.project }}-${{ matrix.arch.name }}"
           auditwheel: true
           manylinux_version: manylinux_2_34
           build_formats: wheel
