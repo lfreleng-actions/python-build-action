@@ -157,10 +157,23 @@ jobs:
           repository: "${{ matrix.project }}"
           path: "project"
 
+      - name: "Derive artefact name"
+        id: artefact
+        shell: bash
+        run: |
+          # Extract repo name from org/repo slug
+          name="${{ matrix.project }}"
+          name="${name##*/}-${{ matrix.arch.name }}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # yamllint disable-line rule:line-length
       - name: "Building: ${{ matrix.project }} [${{ matrix.arch.name }}]"
         uses: ./
         with:
           path_prefix: "project"
+          # Disambiguate artefact names across architectures
+          # to avoid upload-artifact 409 Conflict errors
+          artefact_name: "${{ steps.artefact.outputs.name }}"
           auditwheel: true
           manylinux_version: manylinux_2_34
           build_formats: wheel
