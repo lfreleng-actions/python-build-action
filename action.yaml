@@ -276,6 +276,25 @@ runs:
           python-${{ runner.os }}-
         # yamllint enable rule:line-length
 
+    - name: 'Ensure pip is available'
+      shell: bash
+      run: |
+        # Ensure pip is available
+        # On some runners (e.g. ubuntu-24.04-arm), actions/setup-python
+        # may not bootstrap pip correctly, resulting in:
+        #   ModuleNotFoundError: No module named 'pip'
+        ensurepip_ran=false
+        if ! python -m pip --version > /dev/null 2>&1; then
+          echo "pip not found; running ensurepip 🔧"
+          python -m ensurepip --upgrade
+          ensurepip_ran=true
+        fi
+        if [ "$ensurepip_ran" = true ]; then
+          python -m pip install --disable-pip-version-check \
+            -q --upgrade pip
+        fi
+        echo "$(python -m pip --version) ✅"
+
     - name: 'Install build dependencies'
       shell: bash
       run: |
