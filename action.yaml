@@ -543,6 +543,13 @@ runs:
       if: inputs.sigstore_sign == 'true'
       # yamllint disable-line rule:line-length
       uses: sigstore/gh-action-sigstore-python@04cffa1d795717b140764e8b640de88853c92acc # v3.3.0
+      env:
+        # Prevent uv inside the sigstore action from discovering the
+        # calling project's pyproject.toml [tool.uv] configuration.
+        # Without this, constraint-dependencies (e.g. pygments>=2.20.0)
+        # leak into the action's isolated venv and conflict with its
+        # own pinned dependencies (e.g. pygments==2.19.2 via rich).
+        UV_NO_CONFIG: '1'
       with:
         inputs: ${{ env.SIGSTORE_FILES }}
 
