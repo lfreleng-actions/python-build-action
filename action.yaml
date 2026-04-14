@@ -283,17 +283,16 @@ runs:
         # On some runners (e.g. ubuntu-24.04-arm), actions/setup-python
         # may not bootstrap pip correctly, resulting in:
         #   ModuleNotFoundError: No module named 'pip'
-        ensurepip_ran=false
+        # Note: do NOT run 'pip install --upgrade pip' after ensurepip;
+        # pip's self-upgrade can destroy its own installation, leaving
+        # the module unimportable (observed with pip 26.x on Py 3.12).
         if ! python -m pip --version > /dev/null 2>&1; then
           echo "pip not found; running ensurepip 🔧"
           python -m ensurepip --upgrade
-          ensurepip_ran=true
         fi
-        if [ "$ensurepip_ran" = true ]; then
-          python -m pip install --disable-pip-version-check \
-            -q --upgrade pip
-        fi
-        echo "$(python -m pip --version) ✅"
+        # Final verification; fail fast if pip is still broken
+        python -m pip --version
+        echo "pip module check passed ✅"
 
     - name: 'Install build dependencies'
       shell: bash
