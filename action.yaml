@@ -172,7 +172,18 @@ runs:
 
     - name: 'Fetch tags to support dynamic versioning'
       # yamllint disable rule:line-length
-      if: github.ref_type != 'tag' && steps.metadata.outputs.python_versioning_type == 'dynamic'
+      # Skip the fetch for off-tag PBR builds: we synthesise PBR_VERSION
+      # below so PBR does not need git tag history, and the fetch would
+      # otherwise fail in trees without an accessible `origin` remote.
+      # For other dynamic providers (setuptools-scm, hatch-vcs, etc.)
+      # the fetch is best-effort: we attempt it when an `origin` remote
+      # is configured, but a missing remote is not fatal because local
+      # tags/history may already be sufficient for the provider to
+      # resolve a version.
+      if: >-
+        github.ref_type != 'tag'
+        && steps.metadata.outputs.python_versioning_type == 'dynamic'
+        && steps.metadata.outputs.python_dynamic_provider != 'pbr'
       shell: bash
       run: |
         # Fetch tags to support dynamic versioning
@@ -181,12 +192,34 @@ runs:
         # Only unshallow if the repository is a shallow clone
         shallow_repo=$(git -C "$path_prefix" rev-parse --is-shallow-repository 2>/dev/null) || \
           { echo "Error: git rev-parse --is-shallow-repository failed" >&2; exit 1; }
+        # Skip all remote operations when no `origin` is configured;
+        # the local clone may already carry sufficient tags/history
+        # for the dynamic-versioning provider to resolve a version.
+        # This check runs BEFORE the unshallow fetch, because
+        # `git fetch --unshallow` also requires a reachable `origin`
+        # and would otherwise abort the action for shallow checkouts
+        # without an accessible remote.
+        if ! git -C "$path_prefix" remote get-url origin >/dev/null 2>&1; then
+          echo "Dynamic versioning: no 'origin' remote; skipping tag fetch 💬" \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "No 'origin' remote configured; relying on local tags/history ℹ️"
+          exit 0
+        fi
         if [ "$shallow_repo" = "true" ]; then
           echo "Unshallowing repository ⏩"
-          git -C "$path_prefix" fetch --unshallow
+          if ! git -C "$path_prefix" fetch --unshallow; then
+            echo "Warning: 'git fetch --unshallow' failed; relying on local history ⚠️" >&2
+            echo "Dynamic versioning: unshallow failed; using local history 💬" \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
         fi
-        git -C "$path_prefix" fetch --tags origin ||\
-        { echo "Error: git fetch --tags failed" >&2; exit 1; }
+        if ! git -C "$path_prefix" fetch --tags origin; then
+          echo "Warning: 'git fetch --tags origin' failed; relying on local tags/history ⚠️" >&2
+          echo "Dynamic versioning: 'git fetch --tags origin' failed; using local tags 💬" \
+            >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
         echo "Dynamic versioning: fetched repository tags 💬" \
           >> "$GITHUB_STEP_SUMMARY"
 
@@ -231,6 +264,37 @@ runs:
           echo "Using Python version from metadata: $python_version 💬"
         fi
         echo "python_version=$python_version" >> "$GITHUB_OUTPUT"
+
+    - name: 'Surface metadata fallback warnings'
+      # When build-metadata-action could not derive a Python version from
+      # the project metadata it falls back to a sensible default matrix.
+      # Surface this clearly so the user knows the choice was a guess.
+      # Only warn when no explicit python_version override was supplied;
+      # otherwise the build uses the override and the fallback is moot.
+      # Runs immediately after the Python version is known so the message
+      # is not blocked by failures in setup-python, cache, pip bootstrap,
+      # build-dependency install, the optional make hook, or any build
+      # step that follows.
+      if: >-
+        steps.metadata.outputs.python_requires_python_fallback == 'true'
+        && inputs.python_version == ''
+      shell: bash
+      env:
+        FALLBACK_VERSION: ${{ steps.python_version.outputs.python_version }}
+      run: |
+        msg="⚠️ Project metadata declares no requires-python and no"
+        msg="$msg Python classifiers. Using fallback Python"
+        msg="$msg ${FALLBACK_VERSION} for the build."
+        hint="Consider adding requires-python (PEP 621 pyproject.toml)"
+        hint="$hint or python_requires (setup.cfg [options]) or"
+        hint="$hint 'Programming Language :: Python :: 3 :: Only' /"
+        hint="$hint 'Programming Language :: Python :: 3.<minor>'"
+        hint="$hint Trove classifiers (e.g. 'Programming Language ::"
+        hint="$hint Python :: 3.10')."
+        echo "$msg"
+        echo "$hint"
+        echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+        echo "$hint" >> "$GITHUB_STEP_SUMMARY"
 
     - name: 'Setup Python'
       # yamllint disable-line rule:line-length
@@ -315,14 +379,24 @@ runs:
       #
       # The synthesised file is written into the runner's checkout only
       # (under inputs.path_prefix) and is never committed back to the
-      # consumer's repository. Skip silently when the project already
-      # provides pyproject.toml or setup.py, or when no setup.cfg is
-      # present (there is nothing legacy to coerce into PEP 517).
+      # consumer's repository. A paired cleanup step at the end of this
+      # action removes the file when the build is finished, so the
+      # workspace is left in the same state we found it in. Skip
+      # silently when the project already provides pyproject.toml or
+      # setup.py, or when no setup.cfg is present (there is nothing
+      # legacy to coerce into PEP 517).
+      id: synth_pyproject
       shell: bash
       env:
         PATH_PREFIX: ${{ inputs.path_prefix }}
       run: |
         # Synthesise pyproject.toml for setup.cfg-only projects
+        # GitHub Actions invokes this shell with `bash -e -o pipefail`,
+        # so the redirection below already aborts on write failure.
+        # The explicit check that follows surfaces a clear error
+        # message instead of leaving the next step to fail in
+        # `python -m build` with "Source does not appear to be a
+        # Python project".
         prefix="${PATH_PREFIX:-.}"
         if [ -f "$prefix/pyproject.toml" ] \
            || [ -f "$prefix/setup.py" ]; then
@@ -331,13 +405,103 @@ runs:
         if [ ! -f "$prefix/setup.cfg" ]; then
           exit 0
         fi
-        {
+        target="$prefix/pyproject.toml"
+        if ! {
           echo '[build-system]'
           echo 'requires = ["setuptools>=61", "wheel"]'
           echo 'build-backend = "setuptools.build_meta"'
-        } > "$prefix/pyproject.toml"
+        } > "$target"; then
+          echo "Error: failed to write '$target' ❌"
+          echo "Check that '$prefix' exists and is writable"
+          exit 1
+        fi
+        if [ ! -s "$target" ]; then
+          echo "Error: synthesised '$target' is empty ❌"
+          exit 1
+        fi
+        echo "synthesised=true" >> "$GITHUB_OUTPUT"
+        echo "path=$target" >> "$GITHUB_OUTPUT"
         echo "Synthesised minimal pyproject.toml in '$prefix' for"
         echo "setup.cfg-only project (setuptools.build_meta backend) ℹ️"
+
+    - name: 'Synthesise PBR_VERSION for dynamic PBR builds'
+      # PBR resolves the version from a git tag at build time. Off-tag
+      # builds therefore need PBR_VERSION injected explicitly or the
+      # build fails with: "Versioning for this project requires either
+      # an sdist tarball, or access to an upstream git repository".
+      #
+      # When the caller supplied an explicit `tag` input we prefer
+      # that value verbatim so the artefacts match the caller's
+      # requested version. When `PBR_VERSION` is already present in
+      # the workflow/job environment we treat that as an explicit
+      # caller override and skip synthesis entirely. Otherwise we
+      # synthesise a PEP 440 dev release of the form
+      # 0.0.0.dev<commit_timestamp> using the HEAD commit's
+      # committer timestamp (git %ct). That timestamp is stable
+      # for a given commit (so concurrent matrix jobs produce the
+      # same version) and avoids a local version segment
+      # (+gXXXXX) which PyPI rejects.
+      #
+      # Tag-triggered workflow runs (github.ref_type == 'tag') let
+      # PBR derive the version itself.
+      id: pbr_version
+      if: >-
+        steps.metadata.outputs.python_dynamic_provider == 'pbr'
+        && github.ref_type != 'tag'
+      shell: bash
+      env:
+        PATH_PREFIX: ${{ inputs.path_prefix }}
+        TAG_INPUT: ${{ inputs.tag }}
+        EXISTING_PBR_VERSION: ${{ env.PBR_VERSION }}
+      run: |
+        # Synthesise PBR_VERSION for dynamic PBR builds.
+        #
+        # Precedence (highest first):
+        #   1. `inputs.tag` -- caller-supplied explicit version. Always
+        #      wins because the user has asked the action to produce a
+        #      specific release version.
+        #   2. Pre-existing `PBR_VERSION` in the job/workflow env -- the
+        #      caller has set PBR's documented override directly.
+        #   3. A synthesised `0.0.0.dev<timestamp>` dev release.
+        #
+        # The step output `pbr_version` carries either the explicit tag
+        # or the synthesised dev value (collectively "action-provided");
+        # it stays empty when an existing env value is honoured so the
+        # build steps inherit that value untouched.
+        if [ -n "$TAG_INPUT" ]; then
+          synth="$TAG_INPUT"
+          reason="using caller-supplied tag input"
+          verb="set"
+        elif [ -n "${EXISTING_PBR_VERSION:-}" ]; then
+          echo "ℹ️ PBR dynamic build off-tag:"
+          echo "  caller already provided PBR_VERSION=${EXISTING_PBR_VERSION}"
+          echo "  skipping synthesis to honour the explicit override"
+          summary="PBR build (off-tag): using caller-provided"
+          summary="$summary \`PBR_VERSION=${EXISTING_PBR_VERSION}\`"
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
+          # Deliberately leave the step output empty so the build
+          # step sees no action-provided value and inherits the
+          # caller-provided PBR_VERSION from the environment.
+          exit 0
+        else
+          ts=$(
+            git -C "$PATH_PREFIX" log -1 --format=%ct HEAD 2>/dev/null
+          ) || ts=""
+          if [ -z "$ts" ]; then
+            ts=$(date -u +%s)
+            reason="no git history; using wall-clock timestamp"
+          else
+            reason="using HEAD commit timestamp"
+          fi
+          synth="0.0.0.dev${ts}"
+          verb="synthesised"
+        fi
+        echo "pbr_version=${synth}" >> "$GITHUB_OUTPUT"
+        echo "ℹ️ PBR dynamic build off-tag (${reason}):"
+        echo "  injecting PBR_VERSION=${synth}"
+        summary="PBR build (off-tag, ${reason}):"
+        summary="$summary ${verb} \`PBR_VERSION=${synth}\`"
+        echo "$summary" >> "$GITHUB_STEP_SUMMARY"
 
     - name: 'Prepare make arguments'
       if: inputs.make == 'true'
@@ -363,17 +527,51 @@ runs:
       # yamllint disable rule:line-length
       if: inputs.tox_build == 'true'
       shell: bash
+      env:
+        SYNTH_PBR_VERSION: ${{ steps.pbr_version.outputs.pbr_version }}
       run: |
         # Build with TOX
         echo "Building with tox: some inputs/options may be disregarded ⚠️"
+
+        # Only export PBR_VERSION when the synthesis step produced an
+        # action-provided value (caller-supplied `tag` or a synthesised
+        # dev release). An empty step output would otherwise clobber any
+        # PBR_VERSION the caller (workflow or job-level env) set; in
+        # that case the synthesis intentionally deferred to that value.
+        tox_overrides=()
+        if [ -n "${SYNTH_PBR_VERSION:-}" ]; then
+          export PBR_VERSION="$SYNTH_PBR_VERSION"
+        fi
+        # Apply the tox passenv override whenever PBR_VERSION is present in
+        # the build environment, regardless of whether this action synthesised
+        # it or the caller supplied it via workflow/job env. Use the shared
+        # `testenv` scope so the override propagates to every testenv,
+        # including any custom `package_env` the project may have configured
+        # in its tox.ini (PBR reads PBR_VERSION during package-build, which
+        # tox 4 isolates into a packaging env). Without this, tox's default
+        # env isolation filters PBR_VERSION out and PBR-based projects fail
+        # at package-build time. The additive `+=` form preserves any
+        # existing passenv entries the consumer has configured.
+        if [ -n "${PBR_VERSION:-}" ]; then
+          tox_overrides+=(
+            --override
+            "testenv.passenv+=PBR_VERSION"
+          )
+        fi
 
         path_prefix="${{ inputs.path_prefix }}"
         if [ -f "$path_prefix/tox.ini" ]; then
           echo "TOX configuration file: $path_prefix/tox.ini"
           python -m pip install --disable-pip-version-check \
             -q --upgrade tox tox-gh-actions
-          echo "Building with: tox --root \"$path_prefix\" -c \"$path_prefix\"/tox.ini -e build"
-          if (tox --root "$path_prefix" -c "$path_prefix/tox.ini" -e build); then
+          cmd=(
+            tox --root "$path_prefix"
+            -c "$path_prefix/tox.ini"
+            "${tox_overrides[@]}"
+            -e build
+          )
+          echo "Building with: ${cmd[*]}"
+          if ("${cmd[@]}"); then
             echo 'Build with TOX successful ✅'
           else
             echo 'Build with TOX failed ❌'; exit 1
@@ -383,59 +581,23 @@ runs:
         fi
       # yamllint enable rule:line-length
 
-    - name: 'Surface metadata fallback warnings'
-      # When build-metadata-action could not derive a Python version from
-      # the project metadata it falls back to a sensible default matrix.
-      # Surface this clearly so the user knows the choice was a guess.
-      if: steps.metadata.outputs.python_requires_python_fallback == 'true'
-      shell: bash
-      env:
-        FALLBACK_VERSION: ${{ steps.python_version.outputs.python_version }}
-      run: |
-        msg="⚠️ Project metadata declares no requires-python and no"
-        msg="$msg Python classifiers. Using fallback Python"
-        msg="$msg ${FALLBACK_VERSION} for the build."
-        hint="Consider adding requires-python (PEP 621) or"
-        hint="$hint Programming Language :: Python :: 3.X classifiers."
-        echo "$msg"
-        echo "$hint"
-        echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-        echo "$hint" >> "$GITHUB_STEP_SUMMARY"
-
-    - name: 'Synthesise PBR_VERSION for dynamic PBR builds'
-      # PBR resolves the version from a git tag at build time. Off-tag
-      # builds therefore need PBR_VERSION injected explicitly or the
-      # build fails with: "Versioning for this project requires either
-      # an sdist tarball, or access to an upstream git repository".
-      # Synthesise a PEP 440-compliant pre-release version of the form
-      # 0.0.0.dev0+gXXXXXXX (where XXXXXXX is the short SHA) for these
-      # builds; tag-triggered builds let PBR derive the version itself.
-      id: pbr_version
-      if: >-
-        steps.metadata.outputs.python_dynamic_provider == 'pbr'
-        && github.ref_type != 'tag'
-      shell: bash
-      env:
-        PATH_PREFIX: ${{ inputs.path_prefix }}
-      run: |
-        # Synthesise PBR_VERSION for dynamic PBR builds
-        short_sha=$(
-          git -C "$PATH_PREFIX" rev-parse --short=7 HEAD 2>/dev/null
-        ) || short_sha="unknown"
-        synth="0.0.0.dev0+g${short_sha}"
-        echo "PBR_VERSION=${synth}" >> "$GITHUB_ENV"
-        echo "pbr_version=${synth}" >> "$GITHUB_OUTPUT"
-        echo "ℹ️ PBR dynamic build off-tag:"
-        echo "  injecting PBR_VERSION=${synth}"
-        summary="PBR build (off-tag):"
-        summary="$summary synthesised \`PBR_VERSION=${synth}\`"
-        echo "$summary" >> "$GITHUB_STEP_SUMMARY"
-
     - name: 'Build Python project'
       if: inputs.tox_build != 'true'
       shell: bash
+      env:
+        SYNTH_PBR_VERSION: ${{ steps.pbr_version.outputs.pbr_version }}
       run: |
         # Build Python project
+        # Export the action-provided PBR_VERSION (which may be the
+        # caller-supplied `tag` input or a synthesised dev release)
+        # when the synthesis step produced one. Leaving the output
+        # empty means the synthesis deliberately deferred to a
+        # pre-existing PBR_VERSION inherited from the workflow/job
+        # env; do nothing in that case so the inherited value reaches
+        # the build.
+        if [ -n "${SYNTH_PBR_VERSION:-}" ]; then
+          export PBR_VERSION="$SYNTH_PBR_VERSION"
+        fi
         path_prefix="${{ inputs.path_prefix }}"
         artefact_path="${{ inputs.artefact_path }}"
         build_formats="${{ inputs.build_formats }}"
@@ -648,3 +810,27 @@ runs:
         path: "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"
         if-no-files-found: error
         overwrite: "${{ inputs.purge_artefact_path }}"
+
+    - name: 'Clean up synthesised pyproject.toml'
+      # When the setup.cfg-only synthesis step wrote a transient
+      # pyproject.toml into the consumer's checkout, remove it now
+      # that the build (and any post-build steps that needed it) are
+      # done. This keeps the workspace in the same state we found it
+      # in, so later steps in the same job -- including `git diff
+      # --exit-code` style guards, second build invocations, or
+      # downstream actions that inspect the checkout -- do not see a
+      # spurious untracked file. `if: always()` ensures cleanup runs
+      # even when an earlier step failed, so a failed build does not
+      # leak the synthesised file either.
+      if: >-
+        always()
+        && steps.synth_pyproject.outputs.synthesised == 'true'
+      shell: bash
+      env:
+        SYNTH_PATH: ${{ steps.synth_pyproject.outputs.path }}
+      run: |
+        # Clean up synthesised pyproject.toml
+        if [ -n "${SYNTH_PATH:-}" ] && [ -f "$SYNTH_PATH" ]; then
+          rm -f "$SYNTH_PATH"
+          echo "Removed synthesised '$SYNTH_PATH' ✅"
+        fi

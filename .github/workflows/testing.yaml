@@ -104,17 +104,18 @@ jobs:
           version = 0.1.0
           description = Minimal declarative-setuptools project
           author = Test
-          author-email = test@example.org
+          author_email = test@example.org
           license = Apache-2.0
           [options]
           packages = sample_pkg
           python_requires = >=3.10
           CFG
-          cat > legacy-cfg-project/pyproject.toml <<'TOML'
-          [build-system]
-          requires = ["setuptools>=61"]
-          build-backend = "setuptools.build_meta"
-          TOML
+          # Deliberately omit pyproject.toml and setup.py so the
+          # action must rely on the setup.cfg fallback in the
+          # project-definition existence check AND on the new step
+          # that synthesises a minimal pyproject.toml in the runner's
+          # checkout (setuptools.build_meta backend) so PyPA `build`
+          # can identify the source tree.
           # build-metadata-action expects the project to be a git repo to
           # resolve git-derived metadata. Materialise a tiny repo here.
           git -C legacy-cfg-project init -q
@@ -139,7 +140,12 @@ jobs:
             ls -la "$dist" || true
             exit 1
           fi
-          echo "setup.cfg-only build produced a wheel ✅"
+          if ! ls "$dist"/*.tar.gz >/dev/null 2>&1; then
+            echo "Expected an sdist (.tar.gz) under $dist ❌"
+            ls -la "$dist" || true
+            exit 1
+          fi
+          echo "setup.cfg-only build produced wheel + sdist ✅"
 
   test-python-projects:
     name: "${{ matrix.project }}"
