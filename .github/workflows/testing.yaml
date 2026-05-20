@@ -84,6 +84,69 @@ jobs:
           path_prefix: "test-python-project"
           purge_artefact_path: true
 
+      # Phase 4: validate that the existence check accepts setup.cfg-only
+      # projects (the previous implementation rejected them). The fixture
+      # is a minimal declarative-setuptools project with a literal version,
+      # so the build itself should also succeed end-to-end and produce both
+      # a wheel and an sdist.
+      - name: "Setup setup.cfg-only legacy fixture"
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p legacy-cfg-project/sample_pkg
+          cat > legacy-cfg-project/sample_pkg/__init__.py <<'PY'
+          """Sample package used by python-build-action tests."""
+          __version__ = "0.1.0"
+          PY
+          cat > legacy-cfg-project/setup.cfg <<'CFG'
+          [metadata]
+          name = legacy-cfg-pkg
+          version = 0.1.0
+          description = Minimal declarative-setuptools project
+          author = Test
+          author_email = test@example.org
+          license = Apache-2.0
+          [options]
+          packages = sample_pkg
+          python_requires = >=3.10
+          CFG
+          # Deliberately omit pyproject.toml and setup.py so the
+          # action must rely on the setup.cfg fallback in the
+          # project-definition existence check AND on the new step
+          # that synthesises a minimal pyproject.toml in the runner's
+          # checkout (setuptools.build_meta backend) so PyPA `build`
+          # can identify the source tree.
+          # build-metadata-action expects the project to be a git repo to
+          # resolve git-derived metadata. Materialise a tiny repo here.
+          git -C legacy-cfg-project init -q
+          git -C legacy-cfg-project config user.email test@example.org
+          git -C legacy-cfg-project config user.name Test
+          git -C legacy-cfg-project add -A
+          git -C legacy-cfg-project commit -q -m 'Initial commit'
+
+      - name: "Run action: ${{ github.repository }} [setup.cfg-only]"
+        uses: ./
+        with:
+          path_prefix: "legacy-cfg-project"
+          purge_artefact_path: true
+
+      - name: "Validate setup.cfg-only build artefacts"
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist=legacy-cfg-project/dist
+          if ! ls "$dist"/*.whl >/dev/null 2>&1; then
+            echo "Expected at least one wheel under $dist ❌"
+            ls -la "$dist" || true
+            exit 1
+          fi
+          if ! ls "$dist"/*.tar.gz >/dev/null 2>&1; then
+            echo "Expected an sdist (.tar.gz) under $dist ❌"
+            ls -la "$dist" || true
+            exit 1
+          fi
+          echo "setup.cfg-only build produced wheel + sdist ✅"
+
   test-python-projects:
     name: "${{ matrix.project }}"
     runs-on: ubuntu-latest
