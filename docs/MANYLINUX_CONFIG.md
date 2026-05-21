@@ -345,7 +345,7 @@ jobs:
             platform: x86_64
           - runner: ubuntu-24.04-arm
             platform: aarch64
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
     runs-on: ${{ matrix.arch.runner }}
 
