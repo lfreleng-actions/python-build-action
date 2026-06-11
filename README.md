@@ -141,7 +141,6 @@ jobs:
 | tox_build           | False    | false          | Builds using tox, if configuration file exists              |
 | skip_version_patch  | False    | false          | Skip version patching (support dynamic versioning)          |
 | python_version      | False    |                | Override Python version for build (uses metadata if unset)  |
-| clear_cache         | False    | false          | Clears Python dependency caches                             |
 | build_formats       | False    | both           | Build formats: wheel, sdist, or both                        |
 | auditwheel          | False    | false          | Run auditwheel to repair wheels for manylinux compatibility |
 | manylinux_version   | False    | manylinux_2_34 | Target manylinux version for auditwheel                     |
@@ -175,14 +174,6 @@ Different features require different permission levels:
 ```yaml
 permissions:
   contents: read
-```
-
-### With Cache Clearing
-
-```yaml
-permissions:
-  contents: read
-  actions: write  # Required for cache deletion
 ```
 
 ### With Attestations and/or Signing
@@ -308,50 +299,11 @@ types.
 
 ### Cache Clearing
 
-To clear all Python dependency caches for the repository, set the
-`clear_cache` input to `true`. This performs the following:
-
-1. Delete all existing Python dependency caches, unconditionally
-2. Force fresh installation of all dependencies
-3. Create a new cache for future workflow runs
-
-Use this when:
-
-- Troubleshooting dependency resolution issues
-- Testing with new Python versions where cached dependencies are problematic
-- Ensuring a clean build environment
-
-**Note:** Requires `actions: write` permission in the workflow (see
-[Required Permissions](#required-permissions) section).
-
-Example with `workflow_dispatch`:
-
-<!-- markdownlint-disable MD013 -->
-
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      clear_cache:
-        description: 'Clear all Python dependency caches'
-        type: boolean
-        default: false
-
-jobs:
-  build:
-    permissions:
-      contents: read
-      actions: write  # Required for cache deletion
-    steps:
-      - name: 'Checkout repository'
-        uses: actions/checkout@v4
-      - name: 'Build Python project'
-        uses: lfreleng-actions/python-build-action@3552106f5c8bfedebe4c38116abf3b9c289359ea  # v0.1.22
-        with:
-          clear_cache: ${{ github.event.inputs.clear_cache }}
-```
-
-<!-- markdownlint-enable MD013 -->
+This action does not clear Python dependency caches. Cache clearing now
+lives in a dedicated workflow that can target specific cache/project types
+(for example Python, Docker, or Go) via filters. Separating cache clearing
+from the build keeps the `actions: write` permission out of the build job,
+following the principle of least privilege and separation of concerns.
 
 ## Notes
 

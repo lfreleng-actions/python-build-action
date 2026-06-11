@@ -60,11 +60,6 @@ inputs:
     required: false
     # type: boolean
     default: 'false'
-  clear_cache:
-    description: 'Clear all Python dependency caches for this repository'
-    required: false
-    # type: boolean
-    default: 'false'
   python_version:
     description: >-
       Override Python version for build (uses metadata detection if not set)
@@ -302,25 +297,6 @@ runs:
       with:
         # yamllint disable-line rule:line-length
         python-version: "${{ steps.python_version.outputs.python_version }}"
-
-    - name: 'Clear Python dependency caches'
-      if: inputs.clear_cache == 'true'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        # Clear Python dependency caches
-        echo "Clearing Python dependency caches 🗑️"
-        output="$(gh cache delete --all 2>&1)" || exit_code=$?
-        if [ -z "${exit_code:-}" ]; then
-          echo "Cache clearing completed ✅" >> "$GITHUB_STEP_SUMMARY"
-        else
-          # Cache clearing should not be fatal; minimal output to summary
-          echo "Cache clearing was not successful 💬" >> "$GITHUB_STEP_SUMMARY"
-          # More detailed information goes to the console/log output
-          echo "gh cache exit code: ${exit_code} 💬"
-          echo "$output"
-        fi
 
     - name: 'Cache Python dependencies'
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
