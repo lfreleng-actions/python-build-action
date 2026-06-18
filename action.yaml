@@ -118,9 +118,9 @@ runs:
         # Setup action/environment
 
         # Set input variables
-        path_prefix="${{ inputs.path_prefix }}"
-        artefact_path="${{ inputs.artefact_path }}"
-        purge_artefact_path="${{ inputs.purge_artefact_path }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
+        artefact_path="${INPUTS_ARTEFACT_PATH}"
+        purge_artefact_path="${INPUTS_PURGE_ARTEFACT_PATH}"
 
         # Verify path_prefix a valid directory path
         if [ ! -d "$path_prefix" ]; then
@@ -134,8 +134,6 @@ runs:
         echo "Action triggered by: ${GITHUB_TRIGGERING_ACTOR}"
         datetime=$(date +'%Y-%m-%d-%H%M')
         echo "Build date and time stamp: $datetime"
-        echo "datetime=$datetime" >> "$GITHUB_ENV"
-        echo "datetime=${datetime}" >> "$GITHUB_OUTPUT"
 
         if [ "$purge_artefact_path" != "false" ] && \
           [ -n "$purge_artefact_path" ] && \
@@ -144,6 +142,10 @@ runs:
           echo "Path: $path_prefix/$artefact_path"
           rm -Rf "$path_prefix/$artefact_path"/*
         fi
+      env:
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
+        INPUTS_PURGE_ARTEFACT_PATH: ${{ inputs.purge_artefact_path }}
 
     - name: 'Gather Python project metadata'
       id: metadata
@@ -183,7 +185,7 @@ runs:
       run: |
         # Fetch tags to support dynamic versioning
         # ...but NOT when a tag push triggered the build
-        path_prefix="${{ inputs.path_prefix }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
         # Only unshallow if the repository is a shallow clone
         shallow_repo=$(git -C "$path_prefix" rev-parse --is-shallow-repository 2>/dev/null) || \
           { echo "Error: git rev-parse --is-shallow-repository failed" >&2; exit 1; }
@@ -217,14 +219,18 @@ runs:
         fi
         echo "Dynamic versioning: fetched repository tags 💬" \
           >> "$GITHUB_STEP_SUMMARY"
+      env:
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
 
     - name: 'Explicit build versioning'
       if: inputs.tag != ''
       shell: bash
       run: |
         # Explicit build versioning
-        echo "Explicit build versioning: ${{ inputs.tag }} 💬" \
+        echo "Explicit build versioning: ${INPUTS_TAG} 💬" \
           >> "$GITHUB_STEP_SUMMARY"
+      env:
+        INPUTS_TAG: ${{ inputs.tag }}
 
     - name: 'Patch project versioning metadata'
       # Optionally patch Python project file to match requested build tag
@@ -246,11 +252,11 @@ runs:
       shell: bash
       run: |
         # Determine Python version for build
-        if [ -n "${{ inputs.python_version }}" ]; then
-          python_version="${{ inputs.python_version }}"
+        if [ -n "${INPUTS_PYTHON_VERSION}" ]; then
+          python_version="${INPUTS_PYTHON_VERSION}"
           echo "Using override Python version: $python_version 🔧"
         else
-          python_version="${{ steps.metadata.outputs.python_build_version }}"
+          python_version="${STEPS_METADATA_OUTPUTS_PYTHON_BUILD_VERSION}"
           if [ -z "$python_version" ]; then
             echo "Error: Python version not available ❌" >&2
             echo "Could not determine Python version from metadata or input" >&2
@@ -259,6 +265,9 @@ runs:
           echo "Using Python version from metadata: $python_version 💬"
         fi
         echo "python_version=$python_version" >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_PYTHON_VERSION: ${{ inputs.python_version }}
+        STEPS_METADATA_OUTPUTS_PYTHON_BUILD_VERSION: ${{ steps.metadata.outputs.python_build_version }}
 
     - name: 'Surface metadata fallback warnings'
       # When build-metadata-action could not derive a Python version from
@@ -485,12 +494,15 @@ runs:
       shell: bash
       run: |
         # Prepare make arguments
-        args="${{ inputs.make_args }}"
-        if [ -n "${{ inputs.path_prefix }}" ] && \
-           [ "${{ inputs.path_prefix }}" != '.' ]; then
-          args="-C \"${{ inputs.path_prefix }}\" $args"
+        args="${INPUTS_MAKE_ARGS}"
+        if [ -n "${INPUTS_PATH_PREFIX}" ] && \
+           [ "${INPUTS_PATH_PREFIX}" != '.' ]; then
+          args="-C \"${INPUTS_PATH_PREFIX}\" $args"
         fi
         echo "make_args=$args" >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_MAKE_ARGS: ${{ inputs.make_args }}
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
 
     - name: 'Conditionally run make'
       if: inputs.make == 'true'
@@ -505,6 +517,7 @@ runs:
       shell: bash
       env:
         SYNTH_PBR_VERSION: ${{ steps.pbr_version.outputs.pbr_version }}
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
       run: |
         # Build with TOX
         echo "Building with tox: some inputs/options may be disregarded ⚠️"
@@ -535,7 +548,7 @@ runs:
           )
         fi
 
-        path_prefix="${{ inputs.path_prefix }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
         if [ -f "$path_prefix/tox.ini" ]; then
           echo "TOX configuration file: $path_prefix/tox.ini"
           python -m pip install --disable-pip-version-check \
@@ -562,6 +575,9 @@ runs:
       shell: bash
       env:
         SYNTH_PBR_VERSION: ${{ steps.pbr_version.outputs.pbr_version }}
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
+        INPUTS_BUILD_FORMATS: ${{ inputs.build_formats }}
       run: |
         # Build Python project
         # Export the action-provided PBR_VERSION (which may be the
@@ -574,9 +590,9 @@ runs:
         if [ -n "${SYNTH_PBR_VERSION:-}" ]; then
           export PBR_VERSION="$SYNTH_PBR_VERSION"
         fi
-        path_prefix="${{ inputs.path_prefix }}"
-        artefact_path="${{ inputs.artefact_path }}"
-        build_formats="${{ inputs.build_formats }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
+        artefact_path="${INPUTS_ARTEFACT_PATH}"
+        build_formats="${INPUTS_BUILD_FORMATS}"
 
         # Validate build_formats input
         case "$build_formats" in
@@ -620,8 +636,8 @@ runs:
       shell: bash
       run: |
         # Repair wheels to manylinux format for PyPI compatibility
-        path_prefix="${{ inputs.path_prefix }}"
-        artefact_path="${{ inputs.artefact_path }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
+        artefact_path="${INPUTS_ARTEFACT_PATH}"
 
         # Check if there are any wheels to repair
         if ls "$path_prefix/$artefact_path"/*.whl 1> /dev/null 2>&1; then
@@ -632,7 +648,7 @@ runs:
           mkdir -p "$path_prefix/$artefact_path/wheelhouse"
 
           # Repair each wheel
-          manylinux_version="${{ inputs.manylinux_version }}"
+          manylinux_version="${INPUTS_MANYLINUX_VERSION}"
           echo "Using manylinux version: $manylinux_version"
 
           # Detect architecture for platform tag
@@ -677,6 +693,10 @@ runs:
         else
           echo "No wheels found to repair"
         fi
+      env:
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
+        INPUTS_MANYLINUX_VERSION: ${{ inputs.manylinux_version }}
 
     - name: 'Build outputs/summary'
       id: build_summary
@@ -684,15 +704,15 @@ runs:
       # yamllint disable rule:line-length
       run: |
         # Build outputs/summary
-        path_prefix="${{ inputs.path_prefix }}"
-        artefact_path="${{ inputs.artefact_path }}"
+        path_prefix="${INPUTS_PATH_PREFIX}"
+        artefact_path="${INPUTS_ARTEFACT_PATH}"
         full_artefact_path="$path_prefix/$artefact_path"
 
         # Use custom artefact name if provided, otherwise use project name from
         # metadata, falling back to directory basename if that is unavailable
-        artefact_name="${{ inputs.artefact_name }}"
+        artefact_name="${INPUTS_ARTEFACT_NAME}"
         if [ -z "$artefact_name" ]; then
-          project_name="${{ steps.metadata.outputs.project_name }}"
+          project_name="${STEPS_METADATA_OUTPUTS_PROJECT_NAME}"
           if [ -z "$project_name" ]; then
             project_name=$(basename "$path_prefix")
             echo "Warning: project_name not found in metadata, using: $project_name" >&2
@@ -707,6 +727,11 @@ runs:
         python_version=$(python --version)
         echo "Build with Python $python_version successful ✅"
         echo "Build with $python_version successful ✅" >> "$GITHUB_STEP_SUMMARY"
+      env:
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
+        INPUTS_ARTEFACT_NAME: ${{ inputs.artefact_name }}
+        STEPS_METADATA_OUTPUTS_PROJECT_NAME: ${{ steps.metadata.outputs.project_name }}
 
     # Note: caution with sequencing of steps
     # Twine validation after attestations/signing causes failures
@@ -734,6 +759,7 @@ runs:
 
     # SigStore signing adds JSON files to the artefacts directory
     - name: 'Sign packages with SigStore'
+      id: sigstore_files
       if: inputs.sigstore_sign == 'true'
       shell: bash
       # yamllint disable rule:line-length
@@ -741,15 +767,15 @@ runs:
         # Build list of files to sign based on build_formats
         files_to_sign=()
 
-        if [ "${{ inputs.build_formats }}" = "sdist" ] || [ "${{ inputs.build_formats }}" = "both" ]; then
-          if ls "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"/*.tar.gz 1> /dev/null 2>&1; then
-            files_to_sign+=("${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"/*.tar.gz)
+        if [ "${INPUTS_BUILD_FORMATS}" = "sdist" ] || [ "${INPUTS_BUILD_FORMATS}" = "both" ]; then
+          if ls "${INPUTS_PATH_PREFIX}/${INPUTS_ARTEFACT_PATH}"/*.tar.gz 1> /dev/null 2>&1; then
+            files_to_sign+=("${INPUTS_PATH_PREFIX}/${INPUTS_ARTEFACT_PATH}"/*.tar.gz)
           fi
         fi
 
-        if [ "${{ inputs.build_formats }}" = "wheel" ] || [ "${{ inputs.build_formats }}" = "both" ]; then
-          if ls "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"/*.whl 1> /dev/null 2>&1; then
-            files_to_sign+=("${{ inputs.path_prefix }}/${{ inputs.artefact_path }}"/*.whl)
+        if [ "${INPUTS_BUILD_FORMATS}" = "wheel" ] || [ "${INPUTS_BUILD_FORMATS}" = "both" ]; then
+          if ls "${INPUTS_PATH_PREFIX}/${INPUTS_ARTEFACT_PATH}"/*.whl 1> /dev/null 2>&1; then
+            files_to_sign+=("${INPUTS_PATH_PREFIX}/${INPUTS_ARTEFACT_PATH}"/*.whl)
           fi
         fi
 
@@ -758,9 +784,15 @@ runs:
           exit 1
         fi
 
-        echo "SIGSTORE_FILES<<EOF" >> "$GITHUB_ENV"
-        printf '%s\n' "${files_to_sign[@]}" >> "$GITHUB_ENV"
-        echo "EOF" >> "$GITHUB_ENV"
+        {
+          echo "files<<EOF"
+          printf '%s\n' "${files_to_sign[@]}"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_BUILD_FORMATS: ${{ inputs.build_formats }}
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+        INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
       # yamllint enable rule:line-length
 
     - name: 'Run SigStore signing'
@@ -775,7 +807,7 @@ runs:
         # own pinned dependencies (e.g. pygments==2.19.2 via rich).
         UV_NO_CONFIG: '1'
       with:
-        inputs: ${{ env.SIGSTORE_FILES }}
+        inputs: ${{ steps.sigstore_files.outputs.files }}
 
     - name: 'Upload build artefacts'
       if: inputs.artefact_upload == 'true'
