@@ -34,12 +34,15 @@ jobs:
 
       - name: "Checkout repository"
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: "Checkout sample project repository"
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: "lfreleng-actions/test-python-project"
           path: "test-python-project"
+          persist-credentials: false
 
       - name: "Run action: ${{ github.repository }} [Static versioning]"
         uses: ./
@@ -171,6 +174,8 @@ jobs:
       - name: "Checkout action repository"
         # yamllint disable-line rule:line-length
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: "Checkout project repository: ${{ matrix.project }}"
         # yamllint disable-line rule:line-length
@@ -178,6 +183,7 @@ jobs:
         with:
           repository: "${{ matrix.project }}"
           path: "project"
+          persist-credentials: false
 
       - name: "Building: ${{ matrix.project }}"
         uses: ./
@@ -212,6 +218,8 @@ jobs:
       - name: "Checkout action repository"
         # yamllint disable-line rule:line-length
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
 
       - name: "Checkout project repository: ${{ matrix.project }}"
         # yamllint disable-line rule:line-length
@@ -219,15 +227,19 @@ jobs:
         with:
           repository: "${{ matrix.project }}"
           path: "project"
+          persist-credentials: false
 
       - name: "Derive artefact name"
         id: artefact
         shell: bash
         run: |
           # Extract repo name from org/repo slug
-          name="${{ matrix.project }}"
-          name="${name##*/}-${{ matrix.arch.name }}"
+          name="${MATRIX_PROJECT}"
+          name="${name##*/}-${MATRIX_ARCH_NAME}"
           echo "name=$name" >> "$GITHUB_OUTPUT"
+        env:
+          MATRIX_PROJECT: ${{ matrix.project }}
+          MATRIX_ARCH_NAME: ${{ matrix.arch.name }}
 
       # yamllint disable-line rule:line-length
       - name: "Building: ${{ matrix.project }} [${{ matrix.arch.name }}]"
