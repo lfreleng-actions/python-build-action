@@ -32,11 +32,6 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: "Checkout repository"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: "Checkout sample project repository"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,19 +40,19 @@ jobs:
           persist-credentials: false
 
       - name: "Run action: ${{ github.repository }} [Static versioning]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "test-python-project"
 
       - name: "Run action: ${{ github.repository }} [Build using TOX]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "test-python-project"
           purge_artefact_path: true
           tox_build: true
 
       - name: "Run action: ${{ github.repository }} [Explicit versioning]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "test-python-project/"
           purge_artefact_path: true
@@ -82,7 +77,7 @@ jobs:
             test-python-project/pyproject.toml
 
       - name: "Run action: ${{ github.repository }} [Dynamic versioning/PDM]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "test-python-project"
           purge_artefact_path: true
@@ -128,7 +123,7 @@ jobs:
           git -C legacy-cfg-project commit -q -m 'Initial commit'
 
       - name: "Run action: ${{ github.repository }} [setup.cfg-only]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "legacy-cfg-project"
           purge_artefact_path: true
@@ -171,12 +166,6 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: "Checkout action repository"
-        # yamllint disable-line rule:line-length
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: "Checkout project repository: ${{ matrix.project }}"
         # yamllint disable-line rule:line-length
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -186,7 +175,7 @@ jobs:
           persist-credentials: false
 
       - name: "Building: ${{ matrix.project }}"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "project"
 
@@ -215,12 +204,6 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: "Checkout action repository"
-        # yamllint disable-line rule:line-length
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: "Checkout project repository: ${{ matrix.project }}"
         # yamllint disable-line rule:line-length
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -243,7 +226,7 @@ jobs:
 
       # yamllint disable-line rule:line-length
       - name: "Building: ${{ matrix.project }} [${{ matrix.arch.name }}]"
-        uses: ./
+        uses: $/
         with:
           path_prefix: "project"
           # Disambiguate artefact names across architectures
