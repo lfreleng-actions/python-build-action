@@ -291,14 +291,13 @@ This build action follows modern PEP standards (PEP 517/518/621).
 
 ## Caching
 
-This action automatically caches Python dependencies for all major
-dependency managers (pip, poetry, pipenv) and build backends. The cache
-key includes the OS, Python version, and a hash of all relevant dependency
-files (`requirements.txt`, `pyproject.toml`, `poetry.lock`, `Pipfile*`,
-`setup.py`, `setup.cfg`).
-
-This ensures reliable, up-to-date builds for all supported Python project
-types.
+This action caches pip's download and wheel cache (`~/.cache/pip`) and,
+for `tox_build`, the tox environments the build creates under
+`path_prefix` (`<path_prefix>/.tox`). The cache key includes the OS,
+runner architecture, Python version, and a hash of the project's
+`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt` and
+`tox.ini`. The action reads those files from `path_prefix`, not the whole
+workspace, so changes to other projects do not invalidate the cache.
 
 ### Cache Clearing
 

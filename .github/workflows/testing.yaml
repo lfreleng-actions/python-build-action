@@ -226,6 +226,32 @@ jobs:
           check 'space dir' "$WHITESPACE_OUTCOME"
           check 'glob[1]' "$GLOB_OUTCOME"
 
+  # scripts/cache-paths.sh derives the cache path and dependency hash
+  # from path_prefix; its edge cases (glob characters, equivalent
+  # spellings, line breaks, projects outside the workspace) need no
+  # build, so test the script directly
+  test-cache-paths:
+    name: "Test cache path derivation"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      # Harden the runner used by this workflow
+      # yamllint disable-line rule:line-length
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      # yamllint disable-line rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Run scripts/cache-paths.sh tests"
+        shell: bash
+        run: bash tests/test_cache_paths.sh
+
   test-python-projects:
     name: "${{ matrix.project }}"
     runs-on: ubuntu-latest

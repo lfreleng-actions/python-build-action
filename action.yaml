@@ -321,22 +321,33 @@ runs:
         # yamllint disable-line rule:line-length
         python-version: "${{ steps.python_version.outputs.python_version }}"
 
+    - name: 'Derive cache locations from path_prefix'
+      # The project, and the .tox directory that `tox --root` creates,
+      # live under path_prefix. The script emits that .tox as a glob-safe
+      # actions/cache path and hashes the project's dependency files
+      # itself; see scripts/cache-paths.sh for why hashFiles() is unfit.
+      id: cache_paths
+      shell: bash
+      env:
+        INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/cache-paths.sh"
+
     - name: 'Cache Python dependencies'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
+        # The action installs everything through pip, and tox_build
+        # creates its environments under path_prefix
         path: |
           ~/.cache/pip
-          ~/.cache/pypoetry
-          ~/.cache/pipenv
-          .venv
-          .tox
+          ${{ steps.cache_paths.outputs.tox_path }}
+        # .tox holds architecture-specific interpreters and wheels, so
+        # x64 and arm64 runners on the same OS must not share an entry
         # yamllint disable rule:line-length
         key: >-
-          python-${{ runner.os }}-${{ steps.python_version.outputs.python_version }}-
-          ${{ hashFiles('**/requirements*.txt', '**/pyproject.toml', '**/poetry.lock', '**/Pipfile*', '**/setup.py', '**/setup.cfg') }}
+          python-${{ runner.os }}-${{ runner.arch }}-${{ steps.python_version.outputs.python_version }}-${{ steps.cache_paths.outputs.deps_hash }}
         restore-keys: |
-          python-${{ runner.os }}-${{ steps.python_version.outputs.python_version }}-
-          python-${{ runner.os }}-
+          python-${{ runner.os }}-${{ runner.arch }}-${{ steps.python_version.outputs.python_version }}-
+          python-${{ runner.os }}-${{ runner.arch }}-
         # yamllint enable rule:line-length
 
     - name: 'Ensure pip is available'
@@ -762,8 +773,12 @@ runs:
         path: "${{ inputs.artefact_path }}"
 
     - name: 'Perform artefact attestations'
+      # With no predicate inputs, actions/attest emits SLSA build
+      # provenance; attest-build-provenance v4 only wraps it. That
+      # wrapper's NODE_OPTIONS header-size override applies to
+      # push-to-registry, which this action does not use.
       # yamllint disable-line rule:line-length
-      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
       if: inputs.attestations == 'true'
       with:
         subject-path: "${{ inputs.path_prefix }}/${{ inputs.artefact_path }}/*"
