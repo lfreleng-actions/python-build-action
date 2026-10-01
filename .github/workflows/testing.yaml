@@ -145,6 +145,87 @@ jobs:
           fi
           echo "setup.cfg-only build produced wheel + sdist ✅"
 
+      # Regression: make-action word-splits make_args without quote
+      # removal, so a quoted '-C "<path_prefix>"' reached make literally
+      # and failed with: make: *** "<path_prefix>": No such file or
+      # directory. Exercise make + path_prefix without relying on an
+      # external project from the MULTI_ARCH_TEST_PROJECTS variable.
+      - name: "Add Makefile to setup.cfg-only fixture"
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'make-marker:\n\ttouch make-ran.marker\n' \
+            > legacy-cfg-project/Makefile
+
+      - name: "Run action: ${{ github.repository }} [make with path_prefix]"
+        uses: $/
+        with:
+          path_prefix: "legacy-cfg-project"
+          purge_artefact_path: true
+          make: true
+          make_args: "make-marker"
+
+      - name: "Validate make ran inside path_prefix"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f legacy-cfg-project/make-ran.marker ]; then
+            echo "make target ran inside path_prefix ✅"
+          else
+            echo "Error: make target did not run inside path_prefix ❌"
+            exit 1
+          fi
+
+      # make-action expands make_args unquoted, so the action must reject
+      # a path_prefix that cannot pass bare. Each directory holds a
+      # sentinel that purge_artefact_path would delete, so the sentinel
+      # surviving proves the action failed up front, not in a later step.
+      - name: "Setup path_prefix values to reject when make is enabled"
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in 'space dir' 'glob[1]'; do
+            mkdir -p "$dir/dist"
+            touch "$dir/dist/sentinel"
+          done
+
+      - name: "Run action: ${{ github.repository }} [make, reject whitespace]"
+        id: make-whitespace
+        continue-on-error: true
+        uses: $/
+        with:
+          path_prefix: "space dir"
+          purge_artefact_path: true
+          make: true
+
+      - name: "Run action: ${{ github.repository }} [make, reject glob]"
+        id: make-glob
+        continue-on-error: true
+        uses: $/
+        with:
+          path_prefix: "glob[1]"
+          purge_artefact_path: true
+          make: true
+
+      - name: "Validate path_prefix rejections"
+        shell: bash
+        env:
+          WHITESPACE_OUTCOME: ${{ steps.make-whitespace.outcome }}
+          GLOB_OUTCOME: ${{ steps.make-glob.outcome }}
+        run: |
+          set -euo pipefail
+          check() {
+            if [ "$2" != 'failure' ]; then
+              echo "Error: expected '$1' to fail, got: $2 ❌"; exit 1
+            fi
+            if [ ! -f "$1/dist/sentinel" ]; then
+              echo "Error: '$1' was not rejected up front ❌"; exit 1
+            fi
+            echo "Rejected path_prefix '$1' up front ✅"
+          }
+          check 'space dir' "$WHITESPACE_OUTCOME"
+          check 'glob[1]' "$GLOB_OUTCOME"
+
   test-python-projects:
     name: "${{ matrix.project }}"
     runs-on: ubuntu-latest

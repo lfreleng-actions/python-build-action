@@ -156,7 +156,10 @@ jobs:
 - The `make` input is useful for Python projects with C extensions or other
   compiled components that require build preparation steps via make before
   the Python build process. Use `make_args` to pass specific targets or
-  flags.
+  flags. When `path_prefix` names a subdirectory, the action prepends
+  `-C <path_prefix>` to the make arguments. Because make-action expands
+  those arguments unquoted, the action rejects a `path_prefix` containing
+  whitespace or glob characters (`*`, `?`, `[`) when `make` is true.
 - Do not enable attestations or signing for development/test builds.
 
 See the following links for more information on artefact signing and
