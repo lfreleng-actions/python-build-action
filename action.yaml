@@ -121,10 +121,23 @@ runs:
         path_prefix="${INPUTS_PATH_PREFIX}"
         artefact_path="${INPUTS_ARTEFACT_PATH}"
         purge_artefact_path="${INPUTS_PURGE_ARTEFACT_PATH}"
+        make="${INPUTS_MAKE}"
 
         # Verify path_prefix a valid directory path
         if [ ! -d "$path_prefix" ]; then
           echo 'Error: invalid path/prefix to project directory ❌'; exit 1
+        fi
+
+        # make-action expands make_args unquoted, so whitespace would
+        # split path_prefix and glob characters could expand it to a
+        # different directory; neither survives as a single -C argument
+        if [ "$make" = 'true' ]; then
+          case "$path_prefix" in
+            *[[:space:]]* | *[*?[]*)
+              echo 'Error: path_prefix cannot contain whitespace or glob' \
+                'characters (*, ?, [) when make is enabled ❌'
+              exit 1 ;;
+          esac
         fi
 
         # Output build heading
@@ -146,6 +159,7 @@ runs:
         INPUTS_PATH_PREFIX: ${{ inputs.path_prefix }}
         INPUTS_ARTEFACT_PATH: ${{ inputs.artefact_path }}
         INPUTS_PURGE_ARTEFACT_PATH: ${{ inputs.purge_artefact_path }}
+        INPUTS_MAKE: ${{ inputs.make }}
 
     - name: 'Gather Python project metadata'
       id: metadata
@@ -494,10 +508,14 @@ runs:
       shell: bash
       run: |
         # Prepare make arguments
+        # make-action word-splits make_args without shell quote removal,
+        # so the directory must be passed bare: embedded quotes reach
+        # make literally (make: *** "project": No such file or directory).
+        # Setup action/environment rejects paths that cannot pass bare.
         args="${INPUTS_MAKE_ARGS}"
         if [ -n "${INPUTS_PATH_PREFIX}" ] && \
            [ "${INPUTS_PATH_PREFIX}" != '.' ]; then
-          args="-C \"${INPUTS_PATH_PREFIX}\" $args"
+          args="-C ${INPUTS_PATH_PREFIX} $args"
         fi
         echo "make_args=$args" >> "$GITHUB_OUTPUT"
       env:
