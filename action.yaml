@@ -256,7 +256,7 @@ runs:
         steps.metadata.outputs.project_version != inputs.tag &&
         steps.metadata.outputs.python_versioning_type != 'dynamic'
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-project-version-patch-action@5c8fc99fe0cf9ffecf3032cd5ab12dac136141d6 # v0.1.12
+      uses: lfreleng-actions/python-project-version-patch-action@e3316479638fbb57bfa101583ad2408ee4c4c258 # v0.1.13
       with:
         replacement_version: "${{ inputs.tag }}"
         path_prefix: "${{ inputs.path_prefix }}"
