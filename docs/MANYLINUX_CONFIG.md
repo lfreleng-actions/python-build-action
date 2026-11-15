@@ -207,7 +207,7 @@ After building, verify the wheel has the correct tag:
 
 ```bash
 # Example wheel filename:
-package-1.0.0-cp310-cp310-manylinux_2_34_x86_64.whl
+package-1.0.0-cp311-cp311-manylinux_2_34_x86_64.whl
                             ^^^^^^^^^^^^^^^^
                             Platform tag
 ```
@@ -345,7 +345,7 @@ jobs:
             platform: x86_64
           - runner: ubuntu-24.04-arm
             platform: aarch64
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
 
     runs-on: ${{ matrix.arch.runner }}
 
@@ -360,7 +360,7 @@ jobs:
           manylinux_version: manylinux_2_34
           build_formats: wheel
           artefact_name: wheels-${{ matrix.arch.platform }}-py${{ matrix.python-version }}
-          # Creates separate artifact names like: wheels-x86_64-py3.10, wheels-aarch64-py3.11
+          # Creates separate artifact names like: wheels-x86_64-py3.11, wheels-aarch64-py3.12
 
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/')
