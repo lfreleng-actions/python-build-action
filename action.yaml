@@ -767,7 +767,7 @@ runs:
     # yamllint enable rule:line-length
     - name: 'Validate artefacts with Twine'
       # yamllint disable-line rule:line-length
-      uses: lfreleng-actions/python-twine-check-action@a754a1e1ff5d6dae89cf185b874036145ab6744b  # v0.2.1
+      uses: lfreleng-actions/python-twine-check-action@3158486a6107142382428dbaa883776bdfa84196  # v0.2.4
       with:
         path_prefix: "${{ inputs.path_prefix }}"
         path: "${{ inputs.artefact_path }}"
