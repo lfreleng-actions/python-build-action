@@ -167,6 +167,9 @@ runs:
       uses: lfreleng-actions/build-metadata-action@689e13653176908922b12f85cb93b061c467ba6f  # v0.13.2
       with:
         path_prefix: "${{ inputs.path_prefix }}"
+        # Declare the type: detection ranks marker files such as
+        # package.json or go.mod above the Python project files
+        project_type: python
         output_format: summary
         include_environment: true
         use_version_extract: true
